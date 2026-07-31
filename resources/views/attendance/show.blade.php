@@ -18,9 +18,15 @@
 
     <div class="row mb-3">
         <div class="col-md-12">
-            <a href="{{ route('attendance.collect', $service) }}" class="btn btn-primary">
-                <i class="fa fa-pencil"></i> Badilisha Mahudhurio
-            </a>
+            @if($service->canRecordAttendance())
+                <a href="{{ route('attendance.collect', $service) }}" class="btn btn-primary">
+                    <i class="fa fa-pencil"></i> Badilisha Mahudhurio
+                </a>
+            @else
+                <button type="button" class="btn btn-secondary" disabled title="{{ __('Attendance can only be recorded during or after the service.') }}">
+                    <i class="fa fa-lock"></i> Badilisha Mahudhurio
+                </button>
+            @endif
             <a href="{{ route('attendance.index') }}" class="btn btn-secondary">
                 <i class="fa fa-arrow-left"></i> Rudi
             </a>

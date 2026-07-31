@@ -11,6 +11,7 @@
         </ul>
     </div>
 
+    @if(auth()->user()->isFullStaff())
     <div class="row mb-3">
         <div class="col-md-12">
             <a href="{{ route('attendance.create') }}" class="btn btn-primary">
@@ -18,6 +19,7 @@
             </a>
         </div>
     </div>
+    @endif
 
     <div class="row">
         <div class="col-md-12">
@@ -68,22 +70,31 @@
                                         </td>
                                         <td>{{ $pct }}%</td>
                                         <td class="text-nowrap">
-                                            <a href="{{ route('attendance.collect', $service) }}" class="btn btn-sm btn-primary"
-                                                title="Weka / badilisha mahudhurio">
-                                                <i class="fa fa-pencil"></i>
-                                            </a>
+                                            @if(auth()->user()->isFullStaff() && $service->canRecordAttendance())
+                                                <a href="{{ route('attendance.collect', $service) }}" class="btn btn-sm btn-primary"
+                                                    title="Weka / badilisha mahudhurio">
+                                                    <i class="fa fa-pencil"></i>
+                                                </a>
+                                            @elseif(auth()->user()->isFullStaff())
+                                                <button type="button" class="btn btn-sm btn-secondary" disabled
+                                                    title="{{ __('Attendance can only be recorded during or after the service.') }}">
+                                                    <i class="fa fa-lock"></i>
+                                                </button>
+                                            @endif
                                             <a href="{{ route('attendance.show', $service) }}" class="btn btn-sm btn-info"
                                                 title="Angalia ripoti">
                                                 <i class="fa fa-eye"></i>
                                             </a>
+                                            @if(auth()->user()->isFullStaff())
                                             <form action="{{ route('attendance.destroy', $service) }}" method="POST" class="d-inline"
-                                                onsubmit="return confirm('Futa rekodi hii ya ibada na mahudhurio yake?');">
+                                                data-swal-confirm="{{ __('Delete this service record and its attendance?') }}">
                                                 @csrf
                                                 @method('DELETE')
                                                 <button type="submit" class="btn btn-sm btn-danger" title="Futa">
                                                     <i class="fa fa-trash"></i>
                                                 </button>
                                             </form>
+                                            @endif
                                         </td>
                                     </tr>
                                 @empty

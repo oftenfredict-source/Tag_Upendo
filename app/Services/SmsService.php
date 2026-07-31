@@ -8,23 +8,25 @@ use Illuminate\Support\Facades\Log;
 
 class SmsService
 {
-    protected string $baseUrl = 'https://messaging-service.co.tz';
+    protected string $baseUrl;
     protected ?string $token;
     protected ?string $senderId;
+    protected bool $enabled;
 
     public function __construct()
     {
-        $this->token = Setting::get('sms_token')
-            ?: config('services.sms.token')
-            ?: env('SMS_TOKEN', '');
-        $this->senderId = Setting::get('sms_sender_id')
-            ?: config('services.sms.sender_id')
-            ?: env('SMS_SENDER_ID', 'TAG UPENDO');
+        $this->baseUrl = rtrim((string) config('services.sms.base_url', 'https://messaging-service.co.tz'), '/');
+        $this->token = $this->resolveCredential('sms_token', 'services.sms.token', 'SMS_TOKEN');
+        $this->senderId = $this->resolveCredential('sms_sender_id', 'services.sms.sender_id', 'SMS_SENDER_ID')
+            ?: 'TAG UPENDO';
+        $this->enabled = Setting::has('sms_enabled')
+            ? Setting::bool('sms_enabled', true)
+            : filter_var(config('services.sms.enabled', true), FILTER_VALIDATE_BOOL);
     }
 
     public function isEnabled(): bool
     {
-        return Setting::bool('sms_enabled', true) && !empty($this->token);
+        return $this->enabled && filled($this->token);
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -54,6 +56,10 @@ class SmsService
         }
 
         $to = $this->formatPhone($to);
+
+        if ($to === '') {
+            return ['success' => false, 'message' => __('Invalid phone number. Use 07XXXXXXXX or 2557XXXXXXXX.'), 'data' => null];
+        }
 
         try {
             $response = Http::withToken($this->token)
@@ -85,6 +91,16 @@ class SmsService
      */
     public function sendMultiple(array $recipients, string $message): array
     {
+        if (!$this->isEnabled()) {
+            return ['success' => false, 'message' => 'SMS imezimwa kwenye mipangilio.', 'data' => null];
+        }
+
+        $recipients = array_values(array_filter(array_map(fn ($to) => $this->formatPhone($to), $recipients)));
+
+        if ($recipients === []) {
+            return ['success' => false, 'message' => __('No valid phone numbers found. Use 07XXXXXXXX or 2557XXXXXXXX.'), 'data' => null];
+        }
+
         $messages = array_map(fn($to) => [
             'from' => $this->senderId,
             'to' => $this->formatPhone($to),
@@ -185,16 +201,20 @@ class SmsService
      */
     private function formatPhone(string $phone): string
     {
-        // Strip all non-digits
         $phone = preg_replace('/\D/', '', $phone);
 
-        // Handle 07xxxxxxxx → 2557xxxxxxxx
         if (strlen($phone) === 10 && str_starts_with($phone, '0')) {
             $phone = '255' . substr($phone, 1);
         }
 
-        // Handle +255xxxxxxxxx → 255xxxxxxxxx (already done by stripping +)
-        // Handle 255xxxxxxxxx → keep as-is
+        if (strlen($phone) === 9) {
+            $phone = '255' . $phone;
+        }
+
+        if (strlen($phone) !== 12 || ! str_starts_with($phone, '255')) {
+            return '';
+        }
+
         return $phone;
     }
 
@@ -217,5 +237,18 @@ class SmsService
             ?? "API returned HTTP {$status}";
 
         return ['success' => false, 'message' => $errorMsg, 'data' => $data];
+    }
+
+    protected function resolveCredential(string $settingKey, string $configKey, string $envKey): ?string
+    {
+        $value = Setting::get($settingKey);
+
+        if (filled($value)) {
+            return trim((string) $value);
+        }
+
+        $value = config($configKey) ?: env($envKey);
+
+        return filled($value) ? trim((string) $value) : null;
     }
 }

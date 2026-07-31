@@ -11,13 +11,12 @@ class OfferingController extends Controller
     {
         $offerings = Offering::latest('collection_date')->paginate(10);
 
-        // Calculate totals by category
+        // Calculate totals by category (Zaka is tracked separately under Tithes)
         $totals = [
-            'Zaka' => Offering::where('category', 'Zaka')->sum('amount'),
             'Sadaka' => Offering::where('category', 'Sadaka')->sum('amount'),
             'Ujenzi' => Offering::where('category', 'Ujenzi')->sum('amount'),
             'Shukran' => Offering::where('category', 'Shukran')->sum('amount'),
-            'Other' => Offering::whereNotIn('category', ['Zaka', 'Sadaka', 'Ujenzi', 'Shukran'])->sum('amount'),
+            'Other' => Offering::whereNotIn('category', ['Sadaka', 'Ujenzi', 'Shukran'])->sum('amount'),
         ];
 
         return view('offerings.index', compact('offerings', 'totals'));

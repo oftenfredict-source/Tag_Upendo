@@ -15,7 +15,8 @@
                     @if(session('error'))
                         <div class="alert alert-danger">{{ session('error') }}</div>
                     @endif
-                    <form action="{{ route('bulk-sms.store') }}" method="POST">
+                    <form action="{{ route('bulk-sms.store') }}" method="POST"
+                        data-swal-confirm="{{ __('Are you sure you want to send this bulk SMS?') }}">
                         @csrf
 
                         <div class="form-group">
@@ -66,8 +67,7 @@
                         </div>
 
                         <div class="form-group mt-4">
-                            <button class="btn btn-primary" type="submit"
-                                onclick="return confirm('Are you sure you want to send this bulk SMS?')"><i
+                            <button class="btn btn-primary" type="submit"><i
                                     class="fa fa-fw fa-lg fa-paper-plane"></i>Send Broadcast Now</button>
                         </div>
                     </form>

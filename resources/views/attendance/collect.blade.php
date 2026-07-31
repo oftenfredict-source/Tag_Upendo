@@ -67,7 +67,7 @@
                                     data-phone="{{ strtolower($member->phone_number) }}"
                                     data-dept="{{ $member->department_id ?? '' }}">
                                     <label class="d-flex align-items-center p-2 border rounded member-label"
-                                        style="cursor:pointer;margin:0;{{ in_array($member->id, $presentIds) ? 'background:#e0f2f1;border-color:#009688!important;' : '' }}">
+                                        style="cursor:pointer;margin:0;{{ in_array($member->id, $presentIds) ? 'background:#f5e6e6;border-color:#940000!important;' : '' }}">
                                         <input type="checkbox" name="present[]" value="{{ $member->id }}"
                                             class="present-check mr-2"
                                             {{ in_array($member->id, $presentIds) ? 'checked' : '' }}>
@@ -122,8 +122,8 @@
     function highlightLabel(checkbox) {
         var label = checkbox.closest('.member-label');
         if (!label) return;
-        label.style.background = checkbox.checked ? '#e0f2f1' : '';
-        label.style.borderColor = checkbox.checked ? '#009688' : '';
+        label.style.background = checkbox.checked ? '#f5e6e6' : '';
+        label.style.borderColor = checkbox.checked ? '#940000' : '';
     }
 
     function filterList() {

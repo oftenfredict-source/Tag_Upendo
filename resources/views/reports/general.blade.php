@@ -68,11 +68,12 @@
 
                     <div class="row">
                         <div class="col-md-6">
-                            <h6>Income by Category:</h6>
+                            <h6>{{ __('Income by category') }}:</h6>
                             <ul class="list-unstyled">
                                 @foreach($financials['by_income_cat'] as $inc)
                                     <li><b>{{ $inc->category }}:</b> {{ number_format($inc->total, 0) }}</li>
                                 @endforeach
+                                <li><b>{{ __('Tithes') }}:</b> {{ number_format($financials['total_tithes'], 0) }}</li>
                             </ul>
                         </div>
                         <div class="col-md-6">

@@ -18,41 +18,86 @@ class BulkSmsController extends Controller
 
     public function store(Request $request, SmsService $smsService)
     {
+        if (! $smsService->isEnabled()) {
+            return back()
+                ->withInput()
+                ->with('error', __('SMS is not configured. Add your API token in System Settings → SMS.'));
+        }
+
         $validated = $request->validate([
             'target' => 'required|string|in:all,department,member',
             'department_id' => 'required_if:target,department|nullable|exists:departments,id',
             'member_ids' => 'required_if:target,member|array',
             'member_ids.*' => 'exists:members,id',
-            'message' => 'required|string',
+            'message' => 'required|string|max:1000',
         ]);
 
-        $query = Member::query();
+        $query = Member::query()->whereNotNull('phone_number')->where('phone_number', '!=', '');
 
-        if ($validated['target'] === 'department' && !empty($validated['department_id'])) {
+        if ($validated['target'] === 'department' && ! empty($validated['department_id'])) {
             $query->where('department_id', $validated['department_id']);
-        } elseif ($validated['target'] === 'member' && !empty($validated['member_ids'])) {
+        } elseif ($validated['target'] === 'member' && ! empty($validated['member_ids'])) {
             $query->whereIn('id', $validated['member_ids']);
         }
 
         $members = $query->get();
 
         if ($members->isEmpty()) {
-            return back()->with('error', 'No members found for the selected criteria.');
+            return back()->withInput()->with('error', __('No members with valid phone numbers were found.'));
         }
 
-        $count = 0;
-        foreach ($members as $member) {
-            $smsService->sendSms($member->phone_number, $validated['message']);
+        $sent = 0;
+        $failed = 0;
+        $lastError = null;
 
-            FollowUp::create([
-                'member_id' => $member->id,
-                'message' => $validated['message'],
-                'status' => 'sent',
-                'scheduled_at' => null,
-            ]);
-            $count++;
+        foreach ($members->chunk(50) as $chunk) {
+            $phones = $chunk->pluck('phone_number')->all();
+            $result = $smsService->sendMultiple($phones, $validated['message']);
+
+            if ($result['success'] ?? false) {
+                foreach ($chunk as $member) {
+                    FollowUp::create([
+                        'member_id' => $member->id,
+                        'message' => $validated['message'],
+                        'status' => 'sent',
+                        'scheduled_at' => null,
+                    ]);
+                    $sent++;
+                }
+            } else {
+                $lastError = $result['message'] ?? null;
+
+                foreach ($chunk as $member) {
+                    $single = $smsService->sendSingle($member->phone_number, $validated['message']);
+                    if ($single['success'] ?? false) {
+                        FollowUp::create([
+                            'member_id' => $member->id,
+                            'message' => $validated['message'],
+                            'status' => 'sent',
+                            'scheduled_at' => null,
+                        ]);
+                        $sent++;
+                    } else {
+                        $lastError = $single['message'] ?? $lastError;
+                        $failed++;
+                    }
+                }
+            }
         }
 
-        return redirect()->route('follow-ups.index')->with('success', "Bulk SMS sent successfully to {$count} members!");
+        if ($sent === 0) {
+            $error = $lastError
+                ? __('SMS could not be sent: :reason', ['reason' => $lastError])
+                : __('SMS could not be sent. Check your token, sender ID, and phone numbers.');
+
+            return back()->withInput()->with('error', $error);
+        }
+
+        $message = __('Bulk SMS sent successfully to :count members.', ['count' => $sent]);
+        if ($failed > 0) {
+            $message .= ' ' . __(':count failed.', ['count' => $failed]);
+        }
+
+        return redirect()->route('follow-ups.index')->with('success', $message);
     }
 }

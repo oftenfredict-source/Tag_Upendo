@@ -20,6 +20,15 @@ class Setting extends Model
         return static::$cache[$key] ?? $default;
     }
 
+    public static function has(string $key): bool
+    {
+        if (empty(static::$cache)) {
+            static::loadCache();
+        }
+
+        return array_key_exists($key, static::$cache);
+    }
+
     public static function set(string $key, mixed $value, ?string $group = null, ?string $label = null): void
     {
         static::updateOrCreate(

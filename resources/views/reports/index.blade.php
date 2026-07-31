@@ -19,35 +19,70 @@
     <!-- Quick Stats Cards (Filtered for selected month) -->
     <div class="row">
         <div class="col-md-6 col-lg-3">
-            <div class="widget-small primary coloured-icon"><i class="icon fa fa-calendar-check-o fa-3x"></i>
+            <div class="widget-small primary coloured-icon"><i class="icon fa fa-percent fa-3x"></i>
                 <div class="info">
-                    <h4>Monthly Income</h4>
-                    <p><b>{{ number_format($stats['monthly_offerings'], 0) }}</b></p>
+                    <h4>{{ __('Tithes') }}</h4>
+                    <p><b>TSH {{ number_format($stats['monthly_tithes'], 0) }}</b></p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6 col-lg-3">
+            <div class="widget-small info coloured-icon"><i class="icon fa fa-heart fa-3x"></i>
+                <div class="info">
+                    <h4>{{ __('Offerings') }}</h4>
+                    <p><b>TSH {{ number_format($stats['monthly_offerings'], 0) }}</b></p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6 col-lg-3">
+            <div class="widget-small success coloured-icon"><i class="icon fa fa-calendar-check-o fa-3x"></i>
+                <div class="info">
+                    <h4>{{ __('Monthly Income') }}</h4>
+                    <p><b>TSH {{ number_format($stats['monthly_income'], 0) }}</b></p>
                 </div>
             </div>
         </div>
         <div class="col-md-6 col-lg-3">
             <div class="widget-small danger coloured-icon"><i class="icon fa fa-minus-circle fa-3x"></i>
                 <div class="info">
-                    <h4>Monthly Expense</h4>
-                    <p><b>{{ number_format($stats['monthly_expenses'], 0) }}</b></p>
+                    <h4>{{ __('Monthly Expense') }}</h4>
+                    <p><b>TSH {{ number_format($stats['monthly_expenses'], 0) }}</b></p>
                 </div>
             </div>
         </div>
+    </div>
+
+    <div class="row mb-3">
         <div class="col-md-6 col-lg-3">
-            <div class="widget-small {{ $stats['net_income'] >= 0 ? 'success' : 'danger' }} coloured-icon">
+            <div class="widget-small {{ $stats['net_income'] >= 0 ? 'primary' : 'warning' }} coloured-icon">
                 <i class="icon fa {{ $stats['net_income'] >= 0 ? 'fa-plus-circle' : 'fa-exclamation-triangle' }} fa-3x"></i>
                 <div class="info">
-                    <h4>Month Balance</h4>
-                    <p><b>{{ number_format($stats['net_income'], 0) }}</b></p>
+                    <h4>{{ __('Month Balance') }}</h4>
+                    <p><b>TSH {{ number_format($stats['net_income'], 0) }}</b></p>
                 </div>
             </div>
         </div>
         <div class="col-md-6 col-lg-3">
             <div class="widget-small info coloured-icon"><i class="icon fa fa-money fa-3x"></i>
                 <div class="info">
-                    <h4>Total Collections</h4>
-                    <p><b>{{ number_format($stats['total_offerings'], 0) }}</b></p>
+                    <h4>{{ __('Total Income') }}</h4>
+                    <p><b>TSH {{ number_format($stats['total_income'], 0) }}</b></p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6 col-lg-3">
+            <div class="widget-small primary coloured-icon"><i class="icon fa fa-database fa-3x"></i>
+                <div class="info">
+                    <h4>{{ __('Total Tithes') }}</h4>
+                    <p><b>TSH {{ number_format($stats['total_tithes'], 0) }}</b></p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6 col-lg-3">
+            <div class="widget-small warning coloured-icon"><i class="icon fa fa-database fa-3x"></i>
+                <div class="info">
+                    <h4>{{ __('Total Offerings') }}</h4>
+                    <p><b>TSH {{ number_format($stats['total_offerings'], 0) }}</b></p>
                 </div>
             </div>
         </div>
@@ -58,8 +93,8 @@
         <div class="col-md-12">
             <div class="tile">
                 <h3 class="tile-title">Income vs Expenses (Last 6 Months)</h3>
-                <div class="embed-responsive embed-responsive-16by9">
-                    <canvas class="embed-responsive-item" id="combinedTrendChart"></canvas>
+                <div class="report-trend-chart">
+                    <canvas id="combinedTrendChart"></canvas>
                 </div>
             </div>
         </div>
@@ -96,6 +131,21 @@
     </div>
 @endsection
 
+@push('styles')
+<style>
+    .report-trend-chart {
+        position: relative;
+        max-width: 720px;
+        height: 260px;
+        margin: 0 auto;
+    }
+    .report-trend-chart canvas {
+        width: 100% !important;
+        height: 100% !important;
+    }
+</style>
+@endpush
+
 @push('scripts')
     <script type="text/javascript" src="{{ asset('vali-master/docs/js/plugins/chart.js') }}"></script>
     <script type="text/javascript">
@@ -104,7 +154,7 @@
             labels: {!! json_encode($labels) !!},
             datasets: [
                 {
-                    label: "Income (Sadaka)",
+                    label: "Income ({{ __('Tithes') }} + {{ __('Offerings') }})",
                     fillColor: "rgba(32, 201, 151, 0.2)",
                     strokeColor: "rgba(32, 201, 151, 1)",
                     pointColor: "rgba(32, 201, 151, 1)",
@@ -126,8 +176,8 @@
             ]
         };
 
-        // Data for Pie Chart Cat (Income)
-        var pieDataCat = {!! json_encode($offeringsByCat->map(function($item) {
+        // Data for Pie Chart Cat (Income incl. Tithes)
+        var pieDataCat = {!! json_encode(collect($incomeBySource)->map(function($item) {
             return [
                 'label' => $item['label'],
                 'value' => $item['value'],

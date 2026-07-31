@@ -4,7 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Models\Department;
 use App\Models\Member;
+use App\Models\MemberRegistrationRequest;
+use App\Services\MemberAccountService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class MemberController extends Controller
 {
@@ -22,7 +25,8 @@ class MemberController extends Controller
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
                     ->orWhere('phone_number', 'like', "%{$search}%")
-                    ->orWhere('email', 'like', "%{$search}%");
+                    ->orWhere('email', 'like', "%{$search}%")
+                    ->orWhere('member_code', 'like', "%{$search}%");
             });
         }
 
@@ -54,7 +58,19 @@ class MemberController extends Controller
 
         $departments = Department::orderBy('name')->get();
 
-        return view('members.index', compact('members', 'departments'));
+        $stats = [
+            'total' => Member::whereNull('parent_id')->count(),
+            'members' => Member::whereNull('parent_id')->where('member_type', 'member')->count(),
+            'visitors' => Member::where('member_type', 'visitor')->count(),
+            'new_converts' => Member::where('member_type', 'new_convert')->count(),
+            'children' => Member::whereNotNull('parent_id')->count(),
+        ];
+
+        $pendingRegistrations = auth()->user()->canManageMemberRegistrations()
+            ? MemberRegistrationRequest::where('status', 'pending')->count()
+            : 0;
+
+        return view('members.index', compact('members', 'departments', 'stats', 'pendingRegistrations'));
     }
 
     public function create(Request $request)
@@ -69,7 +85,12 @@ class MemberController extends Controller
             return view('members.create-child', compact('parent'));
         }
 
-        return view('members.create', compact('departments', 'tzRegionNames'));
+        $eligibleSpouses = Member::whereNull('spouse_id')
+            ->whereNull('parent_id')
+            ->orderBy('name')
+            ->get(['id', 'name', 'phone_number', 'gender']);
+
+        return view('members.create', compact('departments', 'tzRegionNames', 'eligibleSpouses'));
     }
 
     public function store(Request $request)
@@ -78,7 +99,7 @@ class MemberController extends Controller
             return $this->storeChild($request);
         }
 
-        $validated = $request->validate([
+        $rules = [
             'name' => 'required|string|max:255',
             'phone_number' => 'required_without:parent_id|nullable|string|max:20',
             'email' => 'nullable|email|max:255',
@@ -100,18 +121,165 @@ class MemberController extends Controller
             'notes' => 'nullable|string|max:1000',
             'department_id' => 'nullable|exists:departments,id',
             'parent_id' => 'nullable|exists:members,id',
-        ]);
+            'spouse_is_member' => 'nullable|in:0,1',
+            'spouse_mode' => 'nullable|in:new,existing',
+            'existing_spouse_id' => 'nullable|exists:members,id',
+            'spouse_name' => 'nullable|string|max:255',
+            'spouse_phone_number' => 'nullable|string|max:20',
+            'spouse_email' => 'nullable|email|max:255',
+            'spouse_gender' => 'nullable|in:male,female',
+            'spouse_date_of_birth' => 'nullable|date|before:today',
+            'spouse_occupation' => 'nullable|string|max:255',
+            'spouse_member_type' => 'nullable|in:member,visitor,new_convert',
+            'spouse_department_id' => 'nullable|exists:departments,id',
+            'spouse_is_baptized' => 'nullable|in:0,1',
+            'spouse_baptism_date' => 'nullable|date',
+            'spouse_date_joined' => 'nullable|date',
+            'spouse_birth_mkoa' => 'nullable|string|max:255',
+            'spouse_birth_wilaya' => 'nullable|string|max:255',
+        ];
+
+        if ($request->input('marital_status') === 'married' && $request->input('spouse_is_member') === '1') {
+            $rules['spouse_mode'] = 'required|in:new,existing';
+
+            if ($request->input('spouse_mode') === 'existing') {
+                $rules['existing_spouse_id'] = 'required|exists:members,id';
+            } else {
+                $rules['spouse_name'] = 'required|string|max:255';
+                $rules['spouse_phone_number'] = 'required|string|max:20';
+                $rules['spouse_member_type'] = 'required|in:member,visitor,new_convert';
+                $rules['spouse_is_baptized'] = 'required|in:0,1';
+            }
+        }
+
+        $validated = $request->validate($rules);
 
         $validated['is_baptized'] = (bool) $validated['is_baptized'];
         if (! $validated['is_baptized']) {
             $validated['baptism_date'] = null;
         }
 
-        $member = Member::create($validated);
+        $memberData = collect($validated)->except([
+            'spouse_is_member',
+            'spouse_mode',
+            'existing_spouse_id',
+            'spouse_name',
+            'spouse_phone_number',
+            'spouse_email',
+            'spouse_gender',
+            'spouse_date_of_birth',
+            'spouse_occupation',
+            'spouse_member_type',
+            'spouse_department_id',
+            'spouse_is_baptized',
+            'spouse_baptism_date',
+            'spouse_date_joined',
+            'spouse_birth_mkoa',
+            'spouse_birth_wilaya',
+        ])->all();
+
+        $member = null;
+        $newAccounts = [];
+
+        DB::transaction(function () use (&$member, &$newAccounts, $memberData, $validated) {
+            $member = Member::create($memberData);
+            $member->update(['member_code' => MemberAccountService::generateMemberCode()]);
+
+            $account = app(MemberAccountService::class)->provision($member->fresh());
+            if ($account) {
+                $newAccounts[] = $account;
+            }
+
+            if (
+                ($validated['marital_status'] ?? null) === 'married'
+                && ($validated['spouse_is_member'] ?? null) === '1'
+            ) {
+                $this->linkOrCreateSpouse($member, $validated);
+
+                $spouse = $member->fresh()->spouse;
+                if ($spouse && ! $spouse->member_code) {
+                    $spouse->update(['member_code' => MemberAccountService::generateMemberCode()]);
+                }
+                if ($spouse) {
+                    $spouseAccount = app(MemberAccountService::class)->provision($spouse->fresh());
+                    if ($spouseAccount) {
+                        $newAccounts[] = $spouseAccount;
+                    }
+                }
+            }
+        });
+
+        $message = __('Member registered successfully.');
+        if ($member->fresh()->spouse_id) {
+            $message = __('Member and spouse registered successfully.');
+        }
 
         return redirect()
             ->route('members.show', $member)
-            ->with('success', 'Member registered successfully.');
+            ->with('success', $message)
+            ->with('new_member_accounts', $newAccounts);
+    }
+
+    protected function linkOrCreateSpouse(Member $member, array $validated): void
+    {
+        if (($validated['spouse_mode'] ?? '') === 'existing') {
+            $spouse = Member::findOrFail($validated['existing_spouse_id']);
+
+            if ($spouse->id === $member->id) {
+                return;
+            }
+
+            if ($spouse->spouse_id) {
+                return;
+            }
+
+            $member->update([
+                'spouse_id' => $spouse->id,
+                'marital_status' => 'married',
+            ]);
+            $spouse->update([
+                'spouse_id' => $member->id,
+                'marital_status' => 'married',
+            ]);
+
+            if (! $spouse->member_code) {
+                $spouse->update(['member_code' => MemberAccountService::generateMemberCode()]);
+            }
+
+            return;
+        }
+
+        $spouseGender = $member->gender === 'male' ? 'female' : ($member->gender === 'female' ? 'male' : null);
+
+        $spouseBaptized = (bool) ($validated['spouse_is_baptized'] ?? false);
+
+        $spouse = Member::create([
+            'name' => $validated['spouse_name'],
+            'phone_number' => $validated['spouse_phone_number'],
+            'email' => $validated['spouse_email'] ?? null,
+            'gender' => $spouseGender,
+            'date_of_birth' => $validated['spouse_date_of_birth'] ?? null,
+            'occupation' => $validated['spouse_occupation'] ?? null,
+            'member_type' => $validated['spouse_member_type'] ?? 'member',
+            'department_id' => $validated['spouse_department_id'] ?? $member->department_id,
+            'is_baptized' => $spouseBaptized,
+            'baptism_date' => $spouseBaptized ? ($validated['spouse_baptism_date'] ?? null) : null,
+            'date_joined' => $validated['spouse_date_joined'] ?? $member->date_joined,
+            'marital_status' => 'married',
+            'birth_mkoa' => $validated['spouse_birth_mkoa'] ?? null,
+            'birth_wilaya' => $validated['spouse_birth_wilaya'] ?? null,
+            'residence_mkoa' => $member->residence_mkoa,
+            'residence_wilaya' => $member->residence_wilaya,
+            'address' => $member->address,
+            'emergency_contact_name' => $member->name,
+            'emergency_contact_phone' => $member->phone_number,
+        ]);
+
+        $member->update([
+            'spouse_id' => $spouse->id,
+            'marital_status' => 'married',
+        ]);
+        $spouse->update(['spouse_id' => $member->id]);
     }
 
     protected function storeChild(Request $request)
@@ -152,7 +320,11 @@ class MemberController extends Controller
 
     public function show(Member $member)
     {
-        $member->load(['department', 'spouse', 'parent.spouse', 'leadershipRoles']);
+        if (auth()->user()->isMember()) {
+            return redirect()->route('dashboard', ['tab' => 'overview']);
+        }
+
+        $member->load(['department', 'spouse', 'parent.spouse', 'leadershipRoles', 'user']);
         $familyChildren = $member->familyChildren()->get();
 
         $eligibleSpouses = Member::where('id', '!=', $member->id)
@@ -225,5 +397,22 @@ class MemberController extends Controller
         return redirect()
             ->route('members.index')
             ->with('success', "Mwanachama {$name} amefutwa kwenye mfumo.");
+    }
+
+    public function search(Request $request)
+    {
+        $q = trim((string) $request->input('q', ''));
+
+        if (mb_strlen($q) < 2) {
+            return response()->json([]);
+        }
+
+        $members = Member::adults()
+            ->where('name', 'like', '%' . $q . '%')
+            ->orderBy('name')
+            ->limit(20)
+            ->get(['id', 'name']);
+
+        return response()->json($members);
     }
 }

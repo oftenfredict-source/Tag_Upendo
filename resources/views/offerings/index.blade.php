@@ -11,14 +11,6 @@
     <!-- Summary Cards -->
     <div class="row">
         <div class="col-md-6 col-lg-3">
-            <div class="widget-small primary coloured-icon"><i class="icon fa fa-star fa-3x"></i>
-                <div class="info">
-                    <h4>Zaka (Tithe)</h4>
-                    <p><b>{{ number_format($totals['Zaka'], 0) }}</b></p>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-6 col-lg-3">
             <div class="widget-small info coloured-icon"><i class="icon fa fa-heart fa-3x"></i>
                 <div class="info">
                     <h4>Sadaka</h4>
@@ -42,6 +34,14 @@
                 </div>
             </div>
         </div>
+        <div class="col-md-6 col-lg-3">
+            <div class="widget-small primary coloured-icon"><i class="icon fa fa-ellipsis-h fa-3x"></i>
+                <div class="info">
+                    <h4>Other</h4>
+                    <p><b>{{ number_format($totals['Other'], 0) }}</b></p>
+                </div>
+            </div>
+        </div>
     </div>
 
     <div class="row">
@@ -57,7 +57,6 @@
                         <div class="form-group">
                             <label class="control-label">Category</label>
                             <select class="form-control" name="category" required>
-                                <option value="Zaka">Zaka (Tithe)</option>
                                 <option value="Sadaka">Sadaka (Offering)</option>
                                 <option value="Ujenzi">Ujenzi (Building)</option>
                                 <option value="Shukran">Shukran (Thanksgiving)</option>
@@ -67,10 +66,9 @@
                         <div class="form-group">
                             <label class="control-label">Service Type</label>
                             <select class="form-control" name="service_type" required>
-                                <option value="Sunday Service">Sunday Service</option>
-                                <option value="Mid-week Service">Mid-week Service</option>
-                                <option value="Special Event">Special Event</option>
-                                <option value="Other">Other</option>
+                                @foreach(\App\Models\Event::serviceTypes() as $value => $label)
+                                    <option value="{{ $value }}">{{ $label }}</option>
+                                @endforeach
                             </select>
                         </div>
                         <div class="form-group">
@@ -118,10 +116,11 @@
                                         <td>
                                             @php
                                                 $badge = 'secondary';
-                                                if($offering->category == 'Zaka') $badge = 'primary';
-                                                elseif($offering->category == 'Sadaka') $badge = 'info';
+                                                if($offering->category == 'Sadaka') $badge = 'info';
                                                 elseif($offering->category == 'Ujenzi') $badge = 'warning';
                                                 elseif($offering->category == 'Shukran') $badge = 'danger';
+                                                elseif($offering->category == 'Zaka') $badge = 'secondary';
+                                                else $badge = 'primary';
                                             @endphp
                                             <span class="badge badge-{{ $badge }}">{{ $offering->category }}</span>
                                         </td>

@@ -75,9 +75,9 @@ class Pledge extends Model
     public static function statusLabel(string $status): string
     {
         return match ($status) {
-            'completed' => 'Imekamilika',
-            'partial' => 'Sehemu',
-            default => 'Inasubiri',
+            'completed' => __('Completed'),
+            'partial' => __('Partial'),
+            default => __('Pending'),
         };
     }
 

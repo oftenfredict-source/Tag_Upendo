@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class Member extends Model
 {
     protected $fillable = [
+        'member_code',
         'name',
         'phone_number',
         'email',
@@ -43,12 +44,32 @@ class Member extends Model
         return $this->belongsTo(Department::class);
     }
 
+    public function user()
+    {
+        return $this->hasOne(User::class);
+    }
+
     public function leadershipRoles()
     {
         return $this->belongsToMany(LeadershipRole::class, 'member_leadership_role')
             ->withPivot(['assigned_at', 'notes'])
             ->withTimestamps()
             ->orderBy('sort_order');
+    }
+
+    public function tithes()
+    {
+        return $this->hasMany(Tithe::class);
+    }
+
+    public function pledges()
+    {
+        return $this->hasMany(Pledge::class);
+    }
+
+    public function serviceRequests()
+    {
+        return $this->hasMany(ServiceRequest::class);
     }
 
     public function leadershipRolesLabel(): string
@@ -96,5 +117,72 @@ class Member extends Model
     public function hasSpouse(): bool
     {
         return $this->spouse_id !== null;
+    }
+
+    public function scopeAdults($query)
+    {
+        return $query->whereNull('parent_id');
+    }
+
+    public function scopePastors($query)
+    {
+        return $query->adults()->whereHas('leadershipRoles', function ($q) {
+            $q->where('name', 'like', '%Pastor%');
+        });
+    }
+
+    public function scopeLeaders($query)
+    {
+        return $query->adults()->whereHas('leadershipRoles');
+    }
+
+    public function scopeChurchElders($query)
+    {
+        return $query->adults()->whereHas('leadershipRoles', function ($q) {
+            $q->where('name', 'Elder')
+                ->orWhere('name_sw', 'Mzee wa Kanisa');
+        });
+    }
+
+    public function scopeSecretaries($query)
+    {
+        return $query->adults()->whereHas('leadershipRoles', function ($q) {
+            $q->where('name', 'like', '%Secretary%')
+                ->orWhere('name_sw', 'like', '%Katibu%');
+        });
+    }
+
+    public function isPastor(): bool
+    {
+        return $this->leadershipRoles->contains(function ($role) {
+            return str_contains($role->name, 'Pastor')
+                || str_contains($role->name_sw ?? '', 'Mchungaji');
+        });
+    }
+
+    public function isSecretary(): bool
+    {
+        return $this->leadershipRoles->contains(function ($role) {
+            return str_contains($role->name, 'Secretary')
+                || str_contains($role->name_sw ?? '', 'Katibu');
+        });
+    }
+
+    public function isLeader(): bool
+    {
+        return $this->leadershipRoles->isNotEmpty();
+    }
+
+    public function preacherSourceType(): string
+    {
+        if ($this->isPastor()) {
+            return 'pastor';
+        }
+
+        if ($this->isLeader()) {
+            return 'leader';
+        }
+
+        return 'member';
     }
 }

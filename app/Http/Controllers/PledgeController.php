@@ -46,7 +46,7 @@ class PledgeController extends Controller
         $initialPaid = (float) ($validated['amount_paid'] ?? 0);
 
         if ($initialPaid > (float) $validated['amount']) {
-            return back()->withInput()->with('error', 'Malipo ya awali hayawezi kuzidi kiasi cha ahadi.');
+            return back()->withInput()->with('error', __('Initial payment cannot exceed pledge amount.'));
         }
 
         $pledge = Pledge::create([
@@ -61,13 +61,13 @@ class PledgeController extends Controller
         ]);
 
         if ($initialPaid > 0) {
-            $this->recordPayment($pledge, $initialPaid, $validated['due_date'], 'Malipo ya awali');
+            $this->recordPayment($pledge, $initialPaid, $validated['due_date'], __('Initial payment'));
         } else {
             $pledge->syncStatus();
             $pledge->save();
         }
 
-        return back()->with('success', 'Pledge imehifadhiwa.');
+        return back()->with('success', __('Pledge saved successfully.'));
     }
 
     public function pay(Request $request, Pledge $pledge)
@@ -81,7 +81,9 @@ class PledgeController extends Controller
         $remaining = $pledge->remainingAmount();
 
         if ((float) $validated['amount'] > $remaining) {
-            return back()->with('error', 'Kiasi kinazidi kilichobaki (TSH ' . number_format($remaining, 0) . ').');
+            return back()->with('error', __('Amount exceeds remaining balance (TSH :amount).', [
+                'amount' => number_format($remaining, 0),
+            ]));
         }
 
         $this->recordPayment(
@@ -91,7 +93,9 @@ class PledgeController extends Controller
             $validated['notes'] ?? null
         );
 
-        return back()->with('success', 'Malipo yameandikwa. Kilichobaki: TSH ' . number_format($pledge->fresh()->remainingAmount(), 0));
+        return back()->with('success', __('Payment recorded. Remaining: TSH :amount', [
+            'amount' => number_format($pledge->fresh()->remainingAmount(), 0),
+        ]));
     }
 
     protected function recordPayment(Pledge $pledge, float $amount, string $date, ?string $notes): void

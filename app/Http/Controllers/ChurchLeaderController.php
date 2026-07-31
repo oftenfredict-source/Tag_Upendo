@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\LeadershipRole;
 use App\Models\Member;
+use App\Services\MemberUserRoleService;
 use Illuminate\Http\Request;
 
 class ChurchLeaderController extends Controller
@@ -35,6 +36,27 @@ class ChurchLeaderController extends Controller
         return view('church-leaders.index', compact('roles', 'members', 'allLeaders', 'stats'));
     }
 
+    public function storeRole(Request $request)
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255|unique:leadership_roles,name',
+            'name_sw' => 'nullable|string|max:255',
+            'description' => 'nullable|string|max:500',
+        ]);
+
+        $maxOrder = LeadershipRole::max('sort_order') ?? 0;
+
+        LeadershipRole::create([
+            'name' => $validated['name'],
+            'name_sw' => $validated['name_sw'] ?? null,
+            'description' => $validated['description'] ?? null,
+            'sort_order' => $maxOrder + 1,
+            'is_active' => true,
+        ]);
+
+        return back()->with('success', __('New role has been added to the list.'));
+    }
+
     public function assign(Request $request)
     {
         $validated = $request->validate([
@@ -47,7 +69,7 @@ class ChurchLeaderController extends Controller
         $member = Member::findOrFail($validated['member_id']);
 
         if ($member->isChild()) {
-            return back()->with('error', 'Huwezi kuweka jukumu kwa mtoto. Tumia mzazi/mlezi.');
+            return back()->with('error', __('You cannot assign a role to a child. Use the parent/guardian.'));
         }
 
         $exists = $member->leadershipRoles()
@@ -55,22 +77,27 @@ class ChurchLeaderController extends Controller
             ->exists();
 
         if ($exists) {
-            return back()->with('error', 'Mwanachama huyu tayari ana jukumu hili.');
+            return back()->with('error', __('This member already has this role.'));
         }
+
+        $role = LeadershipRole::findOrFail($validated['leadership_role_id']);
 
         $member->leadershipRoles()->attach($validated['leadership_role_id'], [
             'assigned_at' => $validated['assigned_at'] ?? now()->toDateString(),
             'notes' => $validated['notes'] ?? null,
         ]);
 
-        return back()->with('success', 'Jukumu limewekwa kwa mwanachama.');
+        app(MemberUserRoleService::class)->syncLeadershipUserRole($member->fresh());
+
+        return back()->with('success', __('Role has been assigned to the member.'));
     }
 
     public function unassign(Member $member, LeadershipRole $role)
     {
         $member->leadershipRoles()->detach($role->id);
 
-        return back()->with('success', 'Jukumu limeondolewa.');
-    }
+        app(MemberUserRoleService::class)->syncLeadershipUserRole($member->fresh());
 
+        return back()->with('success', __('Role has been removed.'));
+    }
 }

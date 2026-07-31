@@ -118,8 +118,8 @@
                                     <label class="control-label">Aina ya Ibada</label>
                                     <select name="service_type" class="form-control">
                                         <option value="">--</option>
-                                        @foreach($serviceTypes as $st)
-                                            <option value="{{ $st }}">{{ $st }}</option>
+                                        @foreach($serviceTypes as $value => $label)
+                                            <option value="{{ $value }}">{{ $label }}</option>
                                         @endforeach
                                     </select>
                                 </div>
@@ -275,12 +275,17 @@
 
     document.querySelectorAll('.btn-delete-event').forEach(function (btn) {
         btn.addEventListener('click', function () {
-            if (!confirm('Futa ibada hii?')) return;
-            var form = document.getElementById('deleteEventForm');
-            form.action = this.getAttribute('data-url');
-            document.getElementById('deleteMonth').value = this.getAttribute('data-month');
-            document.getElementById('deleteYear').value = this.getAttribute('data-year');
-            form.submit();
+            swalConfirm({
+                title: @json(__('Confirm')),
+                text: @json(__('Delete this service?'))
+            }).then(function (result) {
+                if (!result.isConfirmed) return;
+                var form = document.getElementById('deleteEventForm');
+                form.action = btn.getAttribute('data-url');
+                document.getElementById('deleteMonth').value = btn.getAttribute('data-month');
+                document.getElementById('deleteYear').value = btn.getAttribute('data-year');
+                form.submit();
+            });
         });
     });
 })();

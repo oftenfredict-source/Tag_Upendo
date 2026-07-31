@@ -1,10 +1,12 @@
 @extends('layouts.app')
 
+@section('title', __('Pledges'))
+
 @section('content')
     <div class="app-title">
         <div>
-            <h1><i class="fa fa-handshake-o"></i> Pledges (Ahadi)</h1>
-            <p>Fuatilia ahadi, malipo yaliyofanyika, na kilichobaki</p>
+            <h1><i class="fa fa-handshake-o"></i> {{ __('Pledges') }}</h1>
+            <p>{{ __('Track pledges, payments made, and remaining balance') }}</p>
         </div>
     </div>
 
@@ -24,7 +26,7 @@
             <div class="widget-small primary coloured-icon">
                 <i class="icon fa fa-money fa-3x"></i>
                 <div class="info">
-                    <h4>Jumla ya Ahadi</h4>
+                    <h4>{{ __('Total pledged') }}</h4>
                     <p><b>TSH {{ number_format($stats['total_pledged'], 0) }}</b></p>
                 </div>
             </div>
@@ -33,7 +35,7 @@
             <div class="widget-small info coloured-icon">
                 <i class="icon fa fa-check fa-3x"></i>
                 <div class="info">
-                    <h4>Imelipwa</h4>
+                    <h4>{{ __('Paid') }}</h4>
                     <p><b>TSH {{ number_format($stats['total_paid'], 0) }}</b></p>
                 </div>
             </div>
@@ -42,7 +44,7 @@
             <div class="widget-small warning coloured-icon">
                 <i class="icon fa fa-clock-o fa-3x"></i>
                 <div class="info">
-                    <h4>Kilichobaki</h4>
+                    <h4>{{ __('Remaining') }}</h4>
                     <p><b>TSH {{ number_format(max(0, $stats['total_remaining']), 0) }}</b></p>
                 </div>
             </div>
@@ -52,14 +54,14 @@
     <div class="row">
         <div class="col-lg-4 mb-4">
             <div class="tile">
-                <h3 class="tile-title"><i class="fa fa-plus"></i> Ongeza Pledge</h3>
+                <h3 class="tile-title"><i class="fa fa-plus"></i> {{ __('Add pledge') }}</h3>
                 <div class="tile-body">
                     <form method="POST" action="{{ route('pledges.store') }}">
                         @csrf
                         <div class="form-group">
-                            <label class="control-label">Mwanachama <span class="text-danger">*</span></label>
+                            <label class="control-label">{{ __('Member') }} <span class="text-danger">*</span></label>
                             <select name="member_id" id="memberSelect" class="form-control" required style="width:100%">
-                                <option value="">-- Tafuta jina --</option>
+                                <option value="">-- {{ __('Search name') }} --</option>
                                 @foreach($members as $m)
                                     <option value="{{ $m->id }}" {{ old('member_id') == $m->id ? 'selected' : '' }}
                                         data-phone="{{ $m->phone_number }}">
@@ -69,32 +71,32 @@
                             </select>
                         </div>
                         <div class="form-group">
-                            <label class="control-label">Ahadi Kwa <span class="text-danger">*</span></label>
+                            <label class="control-label">{{ __('Pledge for') }} <span class="text-danger">*</span></label>
                             <input type="text" name="pledge_for" class="form-control" required
-                                value="{{ old('pledge_for') }}" placeholder="Ujenzi, viti, programu...">
+                                value="{{ old('pledge_for') }}" placeholder="{{ __('e.g. building, chairs, program...') }}">
                         </div>
                         <div class="form-group">
-                            <label class="control-label">Kiasi cha Ahadi (TSH) <span class="text-danger">*</span></label>
+                            <label class="control-label">{{ __('Pledge amount') }} (TSH) <span class="text-danger">*</span></label>
                             <input type="number" step="1" min="1" name="amount" class="form-control" required
                                 value="{{ old('amount') }}">
                         </div>
                         <div class="form-group">
-                            <label class="control-label">Malipo ya Awali (si lazima)</label>
+                            <label class="control-label">{{ __('Initial payment') }} ({{ __('Optional') }})</label>
                             <input type="number" step="1" min="0" name="amount_paid" class="form-control"
                                 value="{{ old('amount_paid', 0) }}" placeholder="0">
-                            <small class="text-muted">Ikiwa ameshalipa sehemu tayari</small>
+                            <small class="text-muted">{{ __('If member already paid part of the pledge') }}</small>
                         </div>
                         <div class="form-group">
-                            <label class="control-label">Mwisho wa Kulipa <span class="text-danger">*</span></label>
+                            <label class="control-label">{{ __('Due date') }} <span class="text-danger">*</span></label>
                             <input type="date" name="due_date" class="form-control"
                                 value="{{ old('due_date', date('Y-m-d')) }}" required>
                         </div>
                         <div class="form-group">
-                            <label class="control-label">Maelezo</label>
+                            <label class="control-label">{{ __('Notes') }}</label>
                             <textarea name="notes" rows="2" class="form-control">{{ old('notes') }}</textarea>
                         </div>
                         <button class="btn btn-primary btn-block" type="submit">
-                            <i class="fa fa-save"></i> Hifadhi Pledge
+                            <i class="fa fa-save"></i> {{ __('Save pledge') }}
                         </button>
                     </form>
                 </div>
@@ -104,14 +106,14 @@
         <div class="col-lg-8">
             <div class="tile">
                 <div class="tile-title-w-btn">
-                    <h3 class="title mb-0">Orodha ya Pledges</h3>
+                    <h3 class="title mb-0">{{ __('Pledge list') }}</h3>
                 </div>
                 <div class="tile-body">
                     <form method="GET" class="mb-3 p-3 rounded" style="background:#f8f9fa">
                         <div class="row">
                             <div class="col-md-5">
                                 <select name="member_id" id="filterMember" class="form-control" style="width:100%">
-                                    <option value="">Wanachama wote</option>
+                                    <option value="">{{ __('All members') }}</option>
                                     @foreach($members as $m)
                                         <option value="{{ $m->id }}" {{ request('member_id') == $m->id ? 'selected' : '' }}>
                                             {{ $m->name }}
@@ -121,14 +123,14 @@
                             </div>
                             <div class="col-md-4">
                                 <select name="status" class="form-control">
-                                    <option value="">Hali zote</option>
-                                    <option value="pending" {{ request('status') === 'pending' ? 'selected' : '' }}>Inasubiri</option>
-                                    <option value="partial" {{ request('status') === 'partial' ? 'selected' : '' }}>Sehemu</option>
-                                    <option value="completed" {{ request('status') === 'completed' ? 'selected' : '' }}>Imekamilika</option>
+                                    <option value="">{{ __('All statuses') }}</option>
+                                    <option value="pending" {{ request('status') === 'pending' ? 'selected' : '' }}>{{ __('Pending') }}</option>
+                                    <option value="partial" {{ request('status') === 'partial' ? 'selected' : '' }}>{{ __('Partial') }}</option>
+                                    <option value="completed" {{ request('status') === 'completed' ? 'selected' : '' }}>{{ __('Completed') }}</option>
                                 </select>
                             </div>
                             <div class="col-md-3">
-                                <button type="submit" class="btn btn-primary btn-block"><i class="fa fa-filter"></i> Chuja</button>
+                                <button type="submit" class="btn btn-primary btn-block"><i class="fa fa-filter"></i> {{ __('Filter') }}</button>
                             </div>
                         </div>
                     </form>
@@ -137,12 +139,12 @@
                         <table class="table table-hover table-bordered pledge-table mb-0">
                             <thead class="thead-light">
                                 <tr>
-                                    <th>Mwanachama</th>
-                                    <th>Ahadi</th>
-                                    <th class="text-right">Jumla</th>
-                                    <th class="text-right">Imelipwa</th>
-                                    <th class="text-right">Kilichobaki</th>
-                                    <th width="140">Maendeleo</th>
+                                    <th>{{ __('Member') }}</th>
+                                    <th>{{ __('Pledge for') }}</th>
+                                    <th class="text-right">{{ __('Total') }}</th>
+                                    <th class="text-right">{{ __('Paid') }}</th>
+                                    <th class="text-right">{{ __('Remaining') }}</th>
+                                    <th width="140">{{ __('Progress') }}</th>
                                     <th width="90"></th>
                                 </tr>
                             </thead>
@@ -155,7 +157,7 @@
                                             <span class="badge badge-{{ \App\Models\Pledge::statusBadge($pledge->status) }}">
                                                 {{ \App\Models\Pledge::statusLabel($pledge->status) }}
                                             </span>
-                                            <br><small class="text-muted">Mwisho: {{ $pledge->due_date?->format('d/m/Y') }}</small>
+                                            <br><small class="text-muted">{{ __('Due') }}: {{ $pledge->due_date?->format('d/m/Y') }}</small>
                                         </td>
                                         <td>{{ $pledge->pledge_for }}</td>
                                         <td class="text-right">{{ number_format($pledge->amount, 0) }}</td>
@@ -166,8 +168,8 @@
                                                 <div class="progress-bar bg-success" style="width:{{ $pledge->paidPercent() }}%"></div>
                                             </div>
                                             <small>
-                                                <span class="text-success">{{ $pledge->paidPercent() }}%</span> imelipwa ·
-                                                <span class="text-danger">{{ $pledge->remainingPercent() }}%</span> bado
+                                                <span class="text-success">{{ $pledge->paidPercent() }}%</span> {{ __('paid') }} ·
+                                                <span class="text-danger">{{ $pledge->remainingPercent() }}%</span> {{ __('left') }}
                                             </small>
                                         </td>
                                         <td class="text-center">
@@ -194,7 +196,7 @@
                                     @if($pledge->payments->isNotEmpty())
                                         <tr id="history-{{ $pledge->id }}" class="pledge-history-row d-none">
                                             <td colspan="7" class="bg-light">
-                                                <strong><i class="fa fa-list"></i> Historia ya Malipo:</strong>
+                                                <strong><i class="fa fa-list"></i> {{ __('Payment history') }}:</strong>
                                                 <ul class="mb-0 mt-2 pl-3">
                                                     @foreach($pledge->payments as $payment)
                                                         <li>
@@ -211,7 +213,7 @@
                                     @endif
                                 @empty
                                     <tr>
-                                        <td colspan="7" class="text-center text-muted py-4">Hakuna pledge bado.</td>
+                                        <td colspan="7" class="text-center text-muted py-4">{{ __('No pledges yet.') }}</td>
                                     </tr>
                                 @endforelse
                             </tbody>
@@ -223,36 +225,35 @@
         </div>
     </div>
 
-    {{-- Modal: rekodi malipo --}}
     <div class="modal fade" id="payModal" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content">
                 <form id="payForm" method="POST">
                     @csrf
                     <div class="modal-header">
-                        <h5 class="modal-title"><i class="fa fa-money"></i> Rekodi Malipo</h5>
+                        <h5 class="modal-title"><i class="fa fa-money"></i> {{ __('Record payment') }}</h5>
                         <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
                     </div>
                     <div class="modal-body">
-                        <p class="mb-2">Mwanachama: <strong id="payMemberName"></strong></p>
-                        <p class="mb-3 text-danger">Kilichobaki: <strong id="payRemaining"></strong></p>
+                        <p class="mb-2">{{ __('Member') }}: <strong id="payMemberName"></strong></p>
+                        <p class="mb-3 text-danger">{{ __('Remaining') }}: <strong id="payRemaining"></strong></p>
                         <div class="form-group">
-                            <label>Kiasi Kinacholipwa Sasa (TSH) <span class="text-danger">*</span></label>
+                            <label>{{ __('Amount paying now') }} (TSH) <span class="text-danger">*</span></label>
                             <input type="number" name="amount" id="payAmount" class="form-control" min="1" step="1" required>
-                            <small class="text-muted">Hii ndiyo kiasi kilichopungua sasa</small>
+                            <small class="text-muted">{{ __('This is the amount being paid now') }}</small>
                         </div>
                         <div class="form-group">
-                            <label>Tarehe ya Malipo</label>
+                            <label>{{ __('Payment date') }}</label>
                             <input type="date" name="payment_date" class="form-control" value="{{ date('Y-m-d') }}" required>
                         </div>
                         <div class="form-group mb-0">
-                            <label>Maelezo</label>
-                            <input type="text" name="notes" class="form-control" placeholder="Si lazima">
+                            <label>{{ __('Notes') }}</label>
+                            <input type="text" name="notes" class="form-control" placeholder="{{ __('Optional') }}">
                         </div>
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Funga</button>
-                        <button type="submit" class="btn btn-primary"><i class="fa fa-save"></i> Hifadhi Malipo</button>
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">{{ __('Close') }}</button>
+                        <button type="submit" class="btn btn-primary"><i class="fa fa-save"></i> {{ __('Save payment') }}</button>
                     </div>
                 </form>
             </div>
@@ -281,7 +282,7 @@
 <script>
 (function () {
     $('#memberSelect, #filterMember').select2({
-        placeholder: 'Tafuta mwanachama...',
+        placeholder: @json(__('Search member...')),
         allowClear: true,
         width: '100%'
     });

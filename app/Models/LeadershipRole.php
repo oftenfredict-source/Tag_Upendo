@@ -37,6 +37,15 @@ class LeadershipRole extends Model
         return $this->name_sw ?: $this->name;
     }
 
+    public function label(): string
+    {
+        if (app()->getLocale() === 'sw' && $this->name_sw) {
+            return $this->name_sw;
+        }
+
+        return $this->name;
+    }
+
     public static function activeOrdered()
     {
         return static::where('is_active', true)->orderBy('sort_order')->orderBy('name');

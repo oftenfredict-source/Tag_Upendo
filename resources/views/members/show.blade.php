@@ -19,7 +19,11 @@
     </div>
 
     @if(session('success'))
-        <div class="alert alert-success">{{ session('success') }}</div>
+        <div class="alert alert-success d-none" data-session-flash>{{ session('success') }}</div>
+    @endif
+
+    @if(session('new_member_accounts'))
+        <div class="d-none" data-session-flash></div>
     @endif
 
     <div class="row mb-3">
@@ -28,19 +32,23 @@
                 <a href="{{ route('members.show', $member->parent) }}" class="btn btn-secondary">
                     <i class="fa fa-arrow-left"></i> Rudi kwa Mzazi
                 </a>
-            @else
+            @elseif(!auth()->user()->isMember())
                 <a href="{{ route('members.index') }}" class="btn btn-secondary">
                     <i class="fa fa-arrow-left"></i> Back to List
                 </a>
+            @else
+                <a href="{{ route('dashboard') }}" class="btn btn-secondary">
+                    <i class="fa fa-arrow-left"></i> {{ __('My Dashboard') }}
+                </a>
             @endif
-            @unless($member->parent_id)
+            @if(auth()->user()->isFullStaff() && !$member->parent_id)
                 <a href="{{ route('follow-ups.create', $member) }}" class="btn btn-info">
                     <i class="fa fa-envelope"></i> Follow Up / SMS
                 </a>
                 <a href="{{ route('members.create', ['parent_id' => $member->id]) }}" class="btn btn-primary">
                     <i class="fa fa-child"></i> Ongeza Mtoto
                 </a>
-            @endunless
+            @endif
         </div>
     </div>
 
@@ -53,7 +61,7 @@
 
         <div class="row">
             <div class="col-md-6">
-                <div class="tile" style="border-left: 4px solid #009688;">
+                <div class="tile" style="border-left: 4px solid #940000;">
                     <h3 class="tile-title"><i class="fa fa-pencil"></i> Uliyojaza (Fomu ya Mtoto)</h3>
                     <div class="tile-body">
                         <table class="table table-borderless mb-0">
@@ -151,7 +159,7 @@
         {{-- WASIFU WA MTU MZKUU --}}
         <div class="row" id="familia">
             <div class="col-md-12">
-                <div class="tile" style="border-left: 4px solid #009688;">
+                <div class="tile" style="border-left: 4px solid #940000;">
                     <h3 class="tile-title text-primary">
                         <i class="fa fa-heart"></i> Familia — Wanaoishi & Kusali Pamoja
                     </h3>
@@ -160,7 +168,7 @@
                             <div class="col-md-6">
                                 <h6 class="text-muted"><i class="fa fa-users"></i> Mwenzi (Wanandoa)</h6>
                                 @if($member->spouse)
-                                    <div class="p-3 mb-3" style="background:#e0f2f1;border-radius:6px;">
+                                    <div class="p-3 mb-3" style="background:#f5e6e6;border-radius:6px;">
                                         <strong>{{ $member->spouse->name }}</strong>
                                         <br><small>{{ $member->spouse->phone_number }}</small>
                                         <div class="mt-2">
@@ -168,7 +176,7 @@
                                                 <i class="fa fa-eye"></i> Angalia
                                             </a>
                                             <form action="{{ route('members.unlink-spouse', $member) }}" method="POST" class="d-inline"
-                                                onsubmit="return confirm('Ondoa uhusiano wa ndoa?');">
+                                                data-swal-confirm="{{ __('Remove this marriage link?') }}">
                                                 @csrf
                                                 <button type="submit" class="btn btn-sm btn-outline-danger">Ondoa</button>
                                             </form>
@@ -297,6 +305,12 @@
                     <h3 class="tile-title">Contact</h3>
                     <div class="tile-body">
                         <table class="table table-borderless">
+                            @if($member->member_code)
+                            <tr>
+                                <th width="40%">{{ __('Member ID') }}</th>
+                                <td><code>{{ $member->member_code }}</code></td>
+                            </tr>
+                            @endif
                             <tr>
                                 <th width="40%">Phone</th>
                                 <td>{{ $member->phone_number }}</td>

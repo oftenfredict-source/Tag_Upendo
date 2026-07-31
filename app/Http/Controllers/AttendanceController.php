@@ -13,7 +13,8 @@ class AttendanceController extends Controller
     {
         $totalMembers = Member::count();
 
-        $services = ChurchService::withCount('attendances')
+        $services = ChurchService::with('calendarEvent')
+            ->withCount('attendances')
             ->latest('service_date')
             ->latest('id')
             ->paginate(15);
@@ -45,6 +46,12 @@ class AttendanceController extends Controller
 
     public function collect(ChurchService $service)
     {
+        if (! $service->canRecordAttendance()) {
+            return redirect()
+                ->back()
+                ->with('error', __('Attendance can only be recorded during or after the service.'));
+        }
+
         $service->loadCount(['attendances']);
 
         $presentIds = $service->attendances()->pluck('member_id')->all();
@@ -60,6 +67,12 @@ class AttendanceController extends Controller
 
     public function saveCollect(Request $request, ChurchService $service)
     {
+        if (! $service->canRecordAttendance()) {
+            return redirect()
+                ->route('attendance.show', $service)
+                ->with('error', __('Attendance can only be recorded during or after the service.'));
+        }
+
         $validated = $request->validate([
             'present' => 'nullable|array',
             'present.*' => 'exists:members,id',
@@ -83,6 +96,7 @@ class AttendanceController extends Controller
 
     public function show(ChurchService $service)
     {
+        $service->load(['calendarEvent']);
         $service->loadCount(['attendances']);
 
         $presentMembers = Member::whereIn(

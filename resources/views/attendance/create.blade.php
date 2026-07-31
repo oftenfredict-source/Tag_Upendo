@@ -37,11 +37,9 @@
                         <div class="form-group">
                             <label class="control-label">Aina ya Ibada <span class="text-danger">*</span></label>
                             <select name="service_type" class="form-control" required>
-                                <option value="Sunday Service" {{ old('service_type') === 'Sunday Service' ? 'selected' : '' }}>Sunday Service (Jumapili)</option>
-                                <option value="Mid-week Service" {{ old('service_type') === 'Mid-week Service' ? 'selected' : '' }}>Mid-week Service</option>
-                                <option value="Special Event" {{ old('service_type') === 'Special Event' ? 'selected' : '' }}>Special Event</option>
-                                <option value="Prayer Meeting" {{ old('service_type') === 'Prayer Meeting' ? 'selected' : '' }}>Prayer Meeting</option>
-                                <option value="Other" {{ old('service_type') === 'Other' ? 'selected' : '' }}>Other</option>
+                                @foreach(\App\Models\Event::serviceTypes() as $value => $label)
+                                    <option value="{{ $value }}" {{ old('service_type', 'First Service (Sunday)') === $value ? 'selected' : '' }}>{{ $label }}</option>
+                                @endforeach
                             </select>
                         </div>
                         <div class="form-group">
