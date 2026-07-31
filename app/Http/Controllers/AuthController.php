@@ -33,6 +33,15 @@ class AuthController extends Controller
             ])->onlyInput('login');
         }
 
+        if ($user->member_id) {
+            $user->load('member');
+            if ($user->member?->isArchived()) {
+                return back()->withErrors([
+                    'login' => __('This account has been archived. Please contact the church office.'),
+                ])->onlyInput('login');
+            }
+        }
+
         Auth::login($user, $request->boolean('remember'));
         $request->session()->regenerate();
 

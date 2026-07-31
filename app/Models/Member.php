@@ -30,6 +30,9 @@ class Member extends Model
         'department_id',
         'spouse_id',
         'parent_id',
+        'archived_at',
+        'archive_reason',
+        'archived_by',
     ];
 
     protected $casts = [
@@ -37,7 +40,28 @@ class Member extends Model
         'date_joined' => 'date',
         'is_baptized' => 'boolean',
         'baptism_date' => 'date',
+        'archived_at' => 'datetime',
     ];
+
+    public function archivedBy()
+    {
+        return $this->belongsTo(User::class, 'archived_by');
+    }
+
+    public function isArchived(): bool
+    {
+        return $this->archived_at !== null;
+    }
+
+    public function scopeActive($query)
+    {
+        return $query->whereNull('archived_at');
+    }
+
+    public function scopeArchived($query)
+    {
+        return $query->whereNotNull('archived_at');
+    }
 
     public function department()
     {

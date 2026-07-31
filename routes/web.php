@@ -86,7 +86,11 @@ Route::middleware(['auth', 'activity.log'])->group(function () {
         Route::middleware('admin')->group(function () {
             Route::get('members/create', [MemberController::class, 'create'])->name('members.create');
             Route::post('members', [MemberController::class, 'store'])->name('members.store');
-            Route::delete('members/{member}', [MemberController::class, 'destroy'])->name('members.destroy');
+            Route::get('members/{member}/edit', [MemberController::class, 'edit'])->name('members.edit');
+            Route::put('members/{member}', [MemberController::class, 'update'])->name('members.update');
+            Route::post('members/{member}/archive', [MemberController::class, 'archive'])->name('members.archive');
+            Route::post('members/{member}/restore', [MemberController::class, 'restore'])->name('members.restore');
+            Route::post('members/{member}/generate-password', [MemberController::class, 'generatePassword'])->name('members.generate-password');
             Route::get('members-search', [MemberController::class, 'search'])->name('members.search');
             Route::post('members/{member}/link-spouse', [MemberController::class, 'linkSpouse'])->name('members.link-spouse');
             Route::post('members/{member}/unlink-spouse', [MemberController::class, 'unlinkSpouse'])->name('members.unlink-spouse');

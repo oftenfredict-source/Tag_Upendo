@@ -83,8 +83,11 @@
                 </div>
                 <div class="col-6 col-md-3 mb-3 mb-md-0">
                     <div class="dash-month-stat">
-                        <span class="dash-month-value text-success">TSH {{ number_format($stats['offerings_month'], 0) }}</span>
-                        <span class="dash-month-label">{{ __('Offerings') }}</span>
+                        <span class="dash-month-value text-success">TSH {{ number_format($stats['income_month'], 0) }}</span>
+                        <span class="dash-month-label">{{ __('Income') }}</span>
+                        <small class="text-muted d-block mt-1" style="font-size: 11px;">
+                            {{ __('Offerings') }} + {{ __('Tithes') }}
+                        </small>
                     </div>
                 </div>
                 <div class="col-6 col-md-3">

@@ -39,7 +39,10 @@ class LogUserActivity
     {
         return match ($routeName) {
             'members.store' => __('Added a new member'),
-            'members.destroy' => __('Deleted a member'),
+            'members.update' => __('Updated a member profile'),
+            'members.archive' => __('Archived a member'),
+            'members.restore' => __('Restored an archived member'),
+            'members.generate-password' => __('Generated member login password'),
             'members.link-spouse' => __('Linked spouse to member'),
             'members.unlink-spouse' => __('Unlinked spouse from member'),
             'follow-ups.store' => __('Recorded a follow-up message'),

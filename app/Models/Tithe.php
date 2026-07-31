@@ -8,6 +8,7 @@ class Tithe extends Model
 {
     protected $fillable = [
         'member_id',
+        'member_name',
         'amount',
         'payment_date',
         'notes',
@@ -25,6 +26,6 @@ class Tithe extends Model
 
     public function displayName(): string
     {
-        return $this->member?->name ?? '—';
+        return $this->member?->name ?? $this->member_name ?? '—';
     }
 }

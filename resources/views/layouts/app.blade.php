@@ -198,6 +198,10 @@
                     <li><a class="treeview-item {{ request()->routeIs('members.registration-link') ? 'active' : '' }}"
                             href="{{ route('members.registration-link') }}"><i class="icon fa fa-link"></i> {{ __('Registration link') }}</a></li>
                     @endif
+                    @if($authUser->isAdmin())
+                    <li><a class="treeview-item {{ request('status') === 'archived' ? 'active' : '' }}"
+                            href="{{ route('members.index', ['status' => 'archived']) }}"><i class="icon fa fa-archive"></i> {{ __('Archived members') }}</a></li>
+                    @endif
                     @if($authUser->canManageMemberRegistrations())
                     <li><a class="treeview-item {{ request()->is('member-registrations*') ? 'active' : '' }}"
                             href="{{ route('member-registrations.index') }}"><i class="icon fa fa-circle-o"></i> {{ __('Member registrations') }}</a></li>

@@ -162,6 +162,36 @@
     background: #fff;
 }
 
+.login-page__input-wrap--password .form-control {
+    padding-right: 44px;
+}
+
+.login-page__password-toggle {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 34px;
+    height: 34px;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: #888;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2;
+    transition: color 0.2s, background 0.2s;
+}
+
+.login-page__password-toggle:hover,
+.login-page__password-toggle:focus {
+    color: var(--brand-primary);
+    background: rgba(148, 0, 0, 0.08);
+    outline: none;
+}
+
 .login-page__hint {
     display: block;
     margin-top: 0.45rem;

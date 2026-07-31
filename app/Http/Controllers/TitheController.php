@@ -19,7 +19,7 @@ class TitheController extends Controller
             ->paginate(15)
             ->withQueryString();
 
-        $members = Member::whereNull('parent_id')->orderBy('name')->get(['id', 'name', 'phone_number']);
+        $members = Member::whereNull('parent_id')->active()->orderBy('name')->get(['id', 'name', 'phone_number']);
 
         $stats = [
             'this_month' => Tithe::whereMonth('payment_date', now()->month)
@@ -41,7 +41,12 @@ class TitheController extends Controller
             'notes' => 'nullable|string|max:1000',
         ]);
 
-        Tithe::create($validated);
+        $member = Member::findOrFail($validated['member_id']);
+
+        Tithe::create([
+            ...$validated,
+            'member_name' => $member->name,
+        ]);
 
         return back()->with('success', __('Tithe recorded successfully.'));
     }

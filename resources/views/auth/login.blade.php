@@ -49,9 +49,13 @@
 
                 <div class="form-group">
                     <label class="control-label">{{ __('PASSWORD') }}</label>
-                    <div class="login-page__input-wrap">
+                    <div class="login-page__input-wrap login-page__input-wrap--password">
                         <i class="fa fa-lock"></i>
-                        <input class="form-control" name="password" type="password" placeholder="{{ __('Password') }}" required>
+                        <input class="form-control" id="loginPassword" name="password" type="password" placeholder="{{ __('Password') }}" required>
+                        <button type="button" class="login-page__password-toggle" id="toggleLoginPassword"
+                            aria-label="{{ __('Show password') }}" title="{{ __('Show password') }}">
+                            <i class="fa fa-eye" aria-hidden="true"></i>
+                        </button>
                     </div>
                     <small class="login-page__hint">{{ __('Members: use your last name in CAPITAL letters') }}</small>
                 </div>
@@ -78,6 +82,28 @@
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script>
     document.addEventListener('DOMContentLoaded', function () {
+        var passwordInput = document.getElementById('loginPassword');
+        var toggleBtn = document.getElementById('toggleLoginPassword');
+
+        if (passwordInput && toggleBtn) {
+            var showLabel = @json(__('Show password'));
+            var hideLabel = @json(__('Hide password'));
+
+            toggleBtn.addEventListener('click', function () {
+                var isHidden = passwordInput.type === 'password';
+                passwordInput.type = isHidden ? 'text' : 'password';
+
+                var icon = toggleBtn.querySelector('i');
+                if (icon) {
+                    icon.classList.toggle('fa-eye', !isHidden);
+                    icon.classList.toggle('fa-eye-slash', isHidden);
+                }
+
+                toggleBtn.setAttribute('aria-label', isHidden ? hideLabel : showLabel);
+                toggleBtn.setAttribute('title', isHidden ? hideLabel : showLabel);
+            });
+        }
+
         @if ($errors->any())
         Swal.fire({
             icon: 'error',

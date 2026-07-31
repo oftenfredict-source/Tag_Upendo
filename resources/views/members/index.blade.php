@@ -67,8 +67,16 @@
 
     <div class="tile">
         <div class="tile-title-w-btn">
-            <h3 class="title mb-0">{{ __('Member List') }}</h3>
+            <h3 class="title mb-0">{{ $showArchived ? __('Archived Members') : __('Member List') }}</h3>
             <p class="mb-0">
+                @if(auth()->user()->isAdmin())
+                <a class="btn btn-sm {{ $showArchived ? 'btn-outline-primary' : 'btn-primary' }}" href="{{ route('members.index') }}">
+                    {{ __('Active members') }}
+                </a>
+                <a class="btn btn-sm {{ $showArchived ? 'btn-secondary' : 'btn-outline-secondary' }}" href="{{ route('members.index', ['status' => 'archived']) }}">
+                    {{ __('Archived') }} ({{ $stats['archived'] }})
+                </a>
+                @endif
                 @if(auth()->user()->isFullStaff())
                 <a class="btn btn-sm btn-primary" href="{{ route('members.create') }}">
                     <i class="fa fa-plus"></i> {{ __('Add Member') }}
@@ -83,6 +91,9 @@
         </div>
         <div class="tile-body">
             <form method="GET" action="{{ route('members.index') }}" class="members-filter mb-4">
+                @if($showArchived)
+                    <input type="hidden" name="status" value="archived">
+                @endif
                 <div class="row">
                     <div class="col-md-4">
                         <div class="form-group mb-2">
@@ -166,12 +177,16 @@
                             <th>{{ __('Department') }}</th>
                             <th>{{ __('Family') }}</th>
                             <th>{{ __('Joined') }}</th>
-                            <th width="120">{{ __('Actions') }}</th>
+                            @if($showArchived)
+                                <th>{{ __('Archive reason') }}</th>
+                                <th>{{ __('Archived') }}</th>
+                            @endif
+                            <th width="200">{{ __('Actions') }}</th>
                         </tr>
                     </thead>
                     <tbody>
                         @forelse($members as $member)
-                            <tr>
+                            <tr class="{{ $member->isArchived() ? 'table-secondary' : '' }}">
                                 <td>{{ $members->firstItem() + $loop->index }}</td>
                                 <td><code>{{ $member->member_code ?? '—' }}</code></td>
                                 <td>
@@ -222,35 +237,56 @@
                                     @endif
                                 </td>
                                 <td>{{ $member->date_joined ? $member->date_joined->format('d/m/Y') : '—' }}</td>
-                                <td class="text-nowrap">
+                                @if($showArchived)
+                                    <td>{{ $member->archive_reason ?? '—' }}</td>
+                                    <td>{{ $member->archived_at?->format('d/m/Y') ?? '—' }}</td>
+                                @endif
+                                <td class="text-nowrap member-actions">
                                     <a href="{{ route('members.show', $member) }}" class="btn btn-sm btn-primary" title="{{ __('View') }}">
                                         <i class="fa fa-eye"></i>
                                     </a>
-                                    @if(auth()->user()->isFullStaff())
-                                    <a href="{{ route('follow-ups.create', $member) }}" class="btn btn-sm btn-info" title="{{ __('Follow Up') }}">
-                                        <i class="fa fa-envelope"></i>
-                                    </a>
-                                    <button type="button" class="btn btn-sm btn-danger btn-delete-member"
-                                        title="{{ __('Delete member') }}"
-                                        data-toggle="modal" data-target="#deleteMemberModal"
-                                        data-action="{{ route('members.destroy', $member) }}"
-                                        data-name="{{ $member->name }}"
-                                        data-phone="{{ $member->phone_number }}"
-                                        data-email="{{ $member->email ?? '—' }}"
-                                        data-type="{{ $member->member_type }}"
-                                        data-department="{{ $member->department?->name ?? '—' }}"
-                                        data-spouse="{{ $member->spouse?->name ?? '' }}"
-                                        data-children="{{ $member->family_children_count }}"
-                                        data-parent="{{ $member->parent_id ? '1' : '' }}">
-                                        <i class="fa fa-trash"></i>
-                                    </button>
+                                    @if(auth()->user()->isAdmin())
+                                        @if(!$showArchived)
+                                            <a href="{{ route('members.edit', $member) }}" class="btn btn-sm btn-info" title="{{ __('Edit') }}">
+                                                <i class="fa fa-pencil"></i>
+                                            </a>
+                                            @if(!$member->parent_id)
+                                            <form action="{{ route('members.generate-password', $member) }}" method="POST" class="d-inline"
+                                                onsubmit="return confirm(@json(__('Generate a new login password for this member?')));">
+                                                @csrf
+                                                <button type="submit" class="btn btn-sm btn-warning" title="{{ __('Generate password') }}">
+                                                    <i class="fa fa-key"></i>
+                                                </button>
+                                            </form>
+                                            @endif
+                                            <button type="button" class="btn btn-sm btn-secondary btn-archive-member" title="{{ __('Archive') }}"
+                                                data-toggle="modal" data-target="#archiveMemberModal"
+                                                data-action="{{ route('members.archive', $member) }}"
+                                                data-name="{{ $member->name }}">
+                                                <i class="fa fa-archive"></i>
+                                            </button>
+                                        @else
+                                            <form action="{{ route('members.restore', $member) }}" method="POST" class="d-inline"
+                                                onsubmit="return confirm(@json(__('Restore this member to the active list?')));">
+                                                @csrf
+                                                <button type="submit" class="btn btn-sm btn-success" title="{{ __('Restore') }}">
+                                                    <i class="fa fa-undo"></i>
+                                                </button>
+                                            </form>
+                                        @endif
+                                    @elseif(auth()->user()->isFullStaff())
+                                        <a href="{{ route('follow-ups.create', $member) }}" class="btn btn-sm btn-info" title="{{ __('Follow Up') }}">
+                                            <i class="fa fa-envelope"></i>
+                                        </a>
                                     @endif
                                 </td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="9" class="text-center text-muted py-5">
-                                    @if(request()->hasAny(['search', 'member_type', 'gender', 'department_id', 'family']))
+                                <td colspan="{{ $showArchived ? 12 : 10 }}" class="text-center text-muted py-5">
+                                    @if($showArchived)
+                                        {{ __('No archived members.') }}
+                                    @elseif(request()->hasAny(['search', 'member_type', 'gender', 'department_id', 'family']))
                                         {{ __('No members match your filters.') }}
                                         <a href="{{ route('members.index') }}">{{ __('Clear filters') }}</a>
                                     @else
@@ -269,75 +305,38 @@
         </div>
     </div>
 
-    <div class="modal fade" id="deleteMemberModal" tabindex="-1" role="dialog" aria-labelledby="deleteMemberModalLabel" aria-hidden="true">
+    @if(auth()->user()->isAdmin())
+    <div class="modal fade" id="archiveMemberModal" tabindex="-1" role="dialog" aria-labelledby="archiveMemberModalLabel" aria-hidden="true">
         <div class="modal-dialog" role="document">
             <div class="modal-content">
-                <form id="deleteMemberForm" method="POST">
+                <form id="archiveMemberForm" method="POST">
                     @csrf
-                    @method('DELETE')
-                    <div class="modal-header bg-danger text-white">
-                        <h5 class="modal-title" id="deleteMemberModalLabel">
-                            <i class="fa fa-exclamation-triangle"></i> {{ __('Confirm Delete Member') }}
+                    <div class="modal-header bg-secondary text-white">
+                        <h5 class="modal-title" id="archiveMemberModalLabel">
+                            <i class="fa fa-archive"></i> {{ __('Archive member') }}
                         </h5>
-                        <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
-                            <span aria-hidden="true">&times;</span>
-                        </button>
+                        <button type="button" class="close text-white" data-dismiss="modal"><span>&times;</span></button>
                     </div>
                     <div class="modal-body">
-                        <p class="mb-3">{{ __('You are about to delete this member from the system. Please confirm the details:') }}</p>
-
-                        <table class="table table-bordered table-sm mb-3">
-                            <tbody>
-                                <tr>
-                                    <th width="35%">{{ __('Name') }}</th>
-                                    <td id="del-name"><strong>—</strong></td>
-                                </tr>
-                                <tr>
-                                    <th>{{ __('Phone') }}</th>
-                                    <td id="del-phone">—</td>
-                                </tr>
-                                <tr>
-                                    <th>{{ __('Email') }}</th>
-                                    <td id="del-email">—</td>
-                                </tr>
-                                <tr>
-                                    <th>{{ __('Type') }}</th>
-                                    <td id="del-type">—</td>
-                                </tr>
-                                <tr>
-                                    <th>{{ __('Department') }}</th>
-                                    <td id="del-department">—</td>
-                                </tr>
-                                <tr id="del-spouse-row" style="display:none;">
-                                    <th>{{ __('Spouse') }}</th>
-                                    <td id="del-spouse">—</td>
-                                </tr>
-                                <tr id="del-children-row" style="display:none;">
-                                    <th>{{ __('Children') }}</th>
-                                    <td id="del-children">—</td>
-                                </tr>
-                                <tr id="del-parent-row" style="display:none;">
-                                    <th>{{ __('Relation') }}</th>
-                                    <td id="del-parent-note">—</td>
-                                </tr>
-                            </tbody>
-                        </table>
-
-                        <div class="alert alert-warning mb-0">
-                            <i class="fa fa-warning"></i>
-                            <strong>{{ __('Warning') }}:</strong> {{ __('This action cannot be undone. Their follow-ups will also be deleted.') }}
+                        <p class="mb-3">{{ __('Archive member instead of deleting. The record is kept and can be restored later.') }}</p>
+                        <p class="mb-3"><strong id="archive-member-name">—</strong></p>
+                        <div class="form-group mb-0">
+                            <label class="control-label">{{ __('Archive reason') }} <span class="text-danger">*</span></label>
+                            <textarea name="archive_reason" class="form-control" rows="4" required
+                                placeholder="{{ __('Why is this member being archived?') }}"></textarea>
                         </div>
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-dismiss="modal">{{ __('Cancel') }}</button>
-                        <button type="submit" class="btn btn-danger">
-                            <i class="fa fa-trash"></i> {{ __('Yes, delete member') }}
+                        <button type="button" class="btn btn-light" data-dismiss="modal">{{ __('Cancel') }}</button>
+                        <button type="submit" class="btn btn-secondary">
+                            <i class="fa fa-archive"></i> {{ __('Archive member') }}
                         </button>
                     </div>
                 </form>
             </div>
         </div>
     </div>
+    @endif
 @endsection
 
 @push('styles')
@@ -365,53 +364,18 @@
         color: #2c3e50;
     }
     .member-name:hover { color: #940000; text-decoration: none; }
+    .member-actions form { display: inline-block; }
+    .member-actions .btn { margin-bottom: 2px; }
 </style>
 @endpush
 
 @push('scripts')
 <script>
-document.querySelectorAll('.btn-delete-member').forEach(function (btn) {
+document.querySelectorAll('.btn-archive-member').forEach(function (btn) {
     btn.addEventListener('click', function () {
-        var form = document.getElementById('deleteMemberForm');
-        var typeLabels = {
-            member: @json(__('Full Member')),
-            visitor: @json(__('Visitor')),
-            new_convert: @json(__('New Convert'))
-        };
-
-        form.action = btn.getAttribute('data-action');
-        document.getElementById('del-name').innerHTML = '<strong>' + btn.getAttribute('data-name') + '</strong>';
-        document.getElementById('del-phone').textContent = btn.getAttribute('data-phone');
-        document.getElementById('del-email').textContent = btn.getAttribute('data-email');
-        document.getElementById('del-type').textContent = typeLabels[btn.getAttribute('data-type')] || btn.getAttribute('data-type');
-        document.getElementById('del-department').textContent = btn.getAttribute('data-department');
-
-        var spouse = btn.getAttribute('data-spouse');
-        var spouseRow = document.getElementById('del-spouse-row');
-        if (spouse) {
-            spouseRow.style.display = '';
-            document.getElementById('del-spouse').textContent = spouse + ' (' + @json(__('link will be removed')) + ')';
-        } else {
-            spouseRow.style.display = 'none';
-        }
-
-        var children = parseInt(btn.getAttribute('data-children'), 10);
-        var childrenRow = document.getElementById('del-children-row');
-        if (children > 0) {
-            childrenRow.style.display = '';
-            document.getElementById('del-children').textContent = children + ' — ' + @json(__('will remain but without this parent'));
-        } else {
-            childrenRow.style.display = 'none';
-        }
-
-        var parentNote = btn.getAttribute('data-parent');
-        var parentRow = document.getElementById('del-parent-row');
-        if (parentNote) {
-            parentRow.style.display = '';
-            document.getElementById('del-parent-note').textContent = @json(__('This is a child record (only this person will be deleted)'));
-        } else {
-            parentRow.style.display = 'none';
-        }
+        document.getElementById('archiveMemberForm').action = btn.getAttribute('data-action');
+        document.getElementById('archive-member-name').textContent = btn.getAttribute('data-name');
+        document.querySelector('#archiveMemberForm textarea[name="archive_reason"]').value = '';
     });
 });
 </script>

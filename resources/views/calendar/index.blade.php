@@ -25,9 +25,6 @@
             <a href="{{ route('services.index') }}" class="btn btn-secondary">
                 <i class="fa fa-list"></i> {{ __('All Services') }}
             </a>
-            <a href="{{ route('leadership.index') }}" class="btn btn-info">
-                <i class="fa fa-user-circle"></i> Uongozi wa Ibada
-            </a>
             <a href="{{ route('attendance.create') }}" class="btn btn-success">
                 <i class="fa fa-check-square-o"></i> Rekodi Mahudhurio Sasa
             </a>

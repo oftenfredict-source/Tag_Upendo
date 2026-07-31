@@ -26,6 +26,22 @@
         <div class="d-none" data-session-flash></div>
     @endif
 
+    @if($member->isArchived())
+        <div class="alert alert-secondary">
+            <i class="fa fa-archive"></i>
+            <strong>{{ __('Archived member') }}</strong> — {{ $member->archive_reason }}
+            @if(auth()->user()->isAdmin())
+                <form action="{{ route('members.restore', $member) }}" method="POST" class="d-inline ml-2"
+                    onsubmit="return confirm(@json(__('Restore this member to the active list?')));">
+                    @csrf
+                    <button type="submit" class="btn btn-sm btn-success">
+                        <i class="fa fa-undo"></i> {{ __('Restore') }}
+                    </button>
+                </form>
+            @endif
+        </div>
+    @endif
+
     <div class="row mb-3">
         <div class="col-md-12">
             @if($member->parent)
@@ -41,7 +57,12 @@
                     <i class="fa fa-arrow-left"></i> {{ __('My Dashboard') }}
                 </a>
             @endif
-            @if(auth()->user()->isFullStaff() && !$member->parent_id)
+            @if(auth()->user()->isAdmin() && !$member->isArchived())
+                <a href="{{ route('members.edit', $member) }}" class="btn btn-info">
+                    <i class="fa fa-pencil"></i> {{ __('Edit') }}
+                </a>
+            @endif
+            @if(auth()->user()->isFullStaff() && !$member->parent_id && !$member->isArchived())
                 <a href="{{ route('follow-ups.create', $member) }}" class="btn btn-info">
                     <i class="fa fa-envelope"></i> Follow Up / SMS
                 </a>

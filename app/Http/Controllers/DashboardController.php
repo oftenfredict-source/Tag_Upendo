@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\Announcement;
 use App\Models\Event;
 use App\Models\Member;
+use App\Models\Offering;
+use App\Models\Tithe;
 use Illuminate\Support\Carbon;
 
 class DashboardController extends Controller
@@ -18,21 +20,25 @@ class DashboardController extends Controller
         $monthStart = now()->startOfMonth()->toDateString();
         $monthEnd = now()->endOfMonth()->toDateString();
 
+        $offeringsMonth = (float) Offering::whereBetween('collection_date', [$monthStart, $monthEnd])->sum('amount');
+        $tithesMonth = (float) Tithe::whereBetween('payment_date', [$monthStart, $monthEnd])->sum('amount');
+
         $stats = [
-            'members' => Member::whereNull('parent_id')->count(),
+            'members' => Member::active()->whereNull('parent_id')->count(),
             'departments' => \App\Models\Department::count(),
             'leaders' => Member::whereNull('parent_id')->whereHas('leadershipRoles')->count(),
             'follow_ups' => \App\Models\FollowUp::count(),
-            'new_members_month' => Member::whereNull('parent_id')
+            'new_members_month' => Member::active()->whereNull('parent_id')
                 ->whereMonth('created_at', now()->month)
                 ->whereYear('created_at', now()->year)
                 ->count(),
-            'offerings_month' => (float) \App\Models\Offering::whereBetween('collection_date', [$monthStart, $monthEnd])->sum('amount'),
+            'income_month' => $offeringsMonth + $tithesMonth,
             'expenses_month' => (float) \App\Models\Expense::whereBetween('expense_date', [$monthStart, $monthEnd])->sum('amount'),
             'upcoming_events' => Event::where('start_at', '>=', now())->count(),
         ];
 
         $recentMembers = Member::with('department')
+            ->active()
             ->whereNull('parent_id')
             ->latest()
             ->take(6)

@@ -5,14 +5,18 @@ namespace App\Http\Controllers;
 use App\Models\Department;
 use App\Models\Member;
 use App\Models\MemberRegistrationRequest;
+use App\Services\ActivityLogger;
 use App\Services\MemberAccountService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 
 class MemberController extends Controller
 {
     public function index(Request $request)
     {
+        $showArchived = $request->input('status') === 'archived';
+
         $query = Member::with(['department', 'spouse'])
             ->select('members.*')
             ->selectRaw('(
@@ -20,6 +24,12 @@ class MemberController extends Controller
                 WHERE family_children.parent_id = members.id
                    OR (members.spouse_id IS NOT NULL AND family_children.parent_id = members.spouse_id)
             ) AS family_children_count');
+
+        if ($showArchived) {
+            $query->archived()->latest('archived_at');
+        } else {
+            $query->active();
+        }
 
         if ($search = $request->input('search')) {
             $query->where(function ($q) use ($search) {
@@ -59,18 +69,19 @@ class MemberController extends Controller
         $departments = Department::orderBy('name')->get();
 
         $stats = [
-            'total' => Member::whereNull('parent_id')->count(),
-            'members' => Member::whereNull('parent_id')->where('member_type', 'member')->count(),
-            'visitors' => Member::where('member_type', 'visitor')->count(),
-            'new_converts' => Member::where('member_type', 'new_convert')->count(),
-            'children' => Member::whereNotNull('parent_id')->count(),
+            'total' => Member::active()->whereNull('parent_id')->count(),
+            'members' => Member::active()->whereNull('parent_id')->where('member_type', 'member')->count(),
+            'visitors' => Member::active()->where('member_type', 'visitor')->count(),
+            'new_converts' => Member::active()->where('member_type', 'new_convert')->count(),
+            'children' => Member::active()->whereNotNull('parent_id')->count(),
+            'archived' => Member::archived()->count(),
         ];
 
         $pendingRegistrations = auth()->user()->canManageMemberRegistrations()
             ? MemberRegistrationRequest::where('status', 'pending')->count()
             : 0;
 
-        return view('members.index', compact('members', 'departments', 'stats', 'pendingRegistrations'));
+        return view('members.index', compact('members', 'departments', 'stats', 'pendingRegistrations', 'showArchived'));
     }
 
     public function create(Request $request)
@@ -382,6 +393,160 @@ class MemberController extends Controller
         return back()->with('success', 'Uhusiano wa ndoa umeondolewa.');
     }
 
+    public function edit(Member $member)
+    {
+        if ($member->isArchived()) {
+            return redirect()
+                ->route('members.index', ['status' => 'archived'])
+                ->with('error', __('Archived members must be restored before editing.'));
+        }
+
+        $departments = Department::orderBy('name')->get();
+        $tzRegionNames = array_keys(config('tanzania_locations.regions'));
+        sort($tzRegionNames);
+
+        return view('members.edit', compact('member', 'departments', 'tzRegionNames'));
+    }
+
+    public function update(Request $request, Member $member)
+    {
+        if ($member->isArchived()) {
+            return back()->with('error', __('Archived members cannot be updated.'));
+        }
+
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'phone_number' => 'nullable|string|max:20',
+            'email' => 'nullable|email|max:255',
+            'gender' => 'nullable|in:male,female',
+            'date_of_birth' => 'nullable|date|before:today',
+            'birth_mkoa' => 'nullable|string|max:255',
+            'birth_wilaya' => 'nullable|string|max:255',
+            'residence_mkoa' => 'nullable|string|max:255',
+            'residence_wilaya' => 'nullable|string|max:255',
+            'address' => 'nullable|string|max:255',
+            'marital_status' => 'nullable|in:single,married,widowed,divorced',
+            'date_joined' => 'nullable|date',
+            'is_baptized' => 'required|in:0,1',
+            'baptism_date' => 'nullable|date',
+            'occupation' => 'nullable|string|max:255',
+            'member_type' => 'required|in:member,visitor,new_convert',
+            'emergency_contact_name' => 'nullable|string|max:255',
+            'emergency_contact_phone' => 'nullable|string|max:20',
+            'notes' => 'nullable|string|max:1000',
+            'department_id' => 'nullable|exists:departments,id',
+        ]);
+
+        $validated['is_baptized'] = (bool) $validated['is_baptized'];
+        if (! $validated['is_baptized']) {
+            $validated['baptism_date'] = null;
+        }
+
+        $member->update($validated);
+
+        if ($member->user) {
+            $member->user->update(['name' => $member->name]);
+        }
+
+        ActivityLogger::log('member.update', __('Updated member profile: :name', ['name' => $member->name]));
+
+        return redirect()
+            ->route('members.show', $member)
+            ->with('success', __('Member updated successfully.'));
+    }
+
+    public function archive(Request $request, Member $member)
+    {
+        if ($member->isArchived()) {
+            return back()->with('error', __('This member is already archived.'));
+        }
+
+        $validated = $request->validate([
+            'archive_reason' => 'required|string|max:1000',
+        ]);
+
+        $member->update([
+            'archived_at' => now(),
+            'archive_reason' => $validated['archive_reason'],
+            'archived_by' => auth()->id(),
+        ]);
+
+        ActivityLogger::log('member.archive', __('Archived member: :name', ['name' => $member->name]));
+
+        return redirect()
+            ->route('members.index')
+            ->with('success', __('Member :name has been archived.', ['name' => $member->name]));
+    }
+
+    public function restore(Member $member)
+    {
+        if (! $member->isArchived()) {
+            return back()->with('error', __('This member is not archived.'));
+        }
+
+        $name = $member->name;
+
+        $member->update([
+            'archived_at' => null,
+            'archive_reason' => null,
+            'archived_by' => null,
+        ]);
+
+        ActivityLogger::log('member.restore', __('Restored archived member: :name', ['name' => $name]));
+
+        return redirect()
+            ->route('members.index')
+            ->with('success', __('Member :name has been restored.', ['name' => $name]));
+    }
+
+    public function generatePassword(Member $member, MemberAccountService $accountService)
+    {
+        if ($member->isArchived()) {
+            return back()->with('error', __('Cannot generate a password for an archived member.'));
+        }
+
+        if ($member->parent_id) {
+            return back()->with('error', __('Child profiles do not have login accounts.'));
+        }
+
+        $user = $member->user;
+        $plainPassword = MemberAccountService::defaultPassword($member->name);
+
+        if (! $member->member_code) {
+            $member->update(['member_code' => MemberAccountService::generateMemberCode()]);
+            $member->refresh();
+        }
+
+        if ($user) {
+            $user->update(['password' => Hash::make($plainPassword)]);
+        } else {
+            $result = $accountService->provision($member->fresh());
+            if (! $result) {
+                return back()->with('error', __('Could not create a login account for this member.'));
+            }
+
+            return redirect()
+                ->route('members.show', $member)
+                ->with('success', __('Login account created and password generated.'))
+                ->with('new_member_accounts', [$result]);
+        }
+
+        $account = [
+            'name' => $member->name,
+            'member_code' => $member->member_code,
+            'password' => $plainPassword,
+        ];
+
+        $accountService->sendWelcomeSms($member->fresh(), $account);
+
+        ActivityLogger::log('member.password_reset', __('Generated new password for member: :name', ['name' => $member->name]));
+
+        return redirect()
+            ->route('members.show', $member)
+            ->with('success', __('New password generated successfully.'))
+            ->with('new_member_accounts', [$account]);
+    }
+
     public function destroy(Member $member)
     {
         $name = $member->name;
@@ -408,6 +573,7 @@ class MemberController extends Controller
         }
 
         $members = Member::adults()
+            ->active()
             ->where('name', 'like', '%' . $q . '%')
             ->orderBy('name')
             ->limit(20)
