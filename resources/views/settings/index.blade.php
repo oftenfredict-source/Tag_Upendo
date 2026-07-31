@@ -379,7 +379,7 @@
                                                 @forelse($users as $user)
                                                     <tr>
                                                         <td><strong>{{ $user->name }}</strong></td>
-                                                        <td>{{ $user->email }}</td>
+                                                        <td>{{ $user->email ?: '—' }}</td>
                                                         <td><span class="badge badge-{{ $user->isPastor() ? 'info' : ($user->isSecretary() ? 'secondary' : 'primary') }}">{{ $user->roleLabel() }}</span></td>
                                                         <td>{{ $user->member?->name ?? '—' }}</td>
                                                         <td>{{ $user->created_at->format('Y-m-d') }}</td>

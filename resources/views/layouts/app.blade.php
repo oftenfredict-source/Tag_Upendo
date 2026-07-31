@@ -211,7 +211,7 @@
                 </ul>
             </li>
 
-            <li class="treeview {{ request()->is('calendar*') || request()->is('services*') || request()->is('attendance*') ? 'is-expanded' : '' }}">
+            <li class="treeview {{ request()->is('calendar*') || request()->is('services*') || request()->is('attendance*') || request()->is('guests*') ? 'is-expanded' : '' }}">
                 <a class="app-menu__item" href="#" data-toggle="treeview">
                     <i class="app-menu__icon fa fa-calendar"></i>
                     <span class="app-menu__label">{{ __('Services & Attendance') }}</span>
@@ -222,6 +222,8 @@
                             href="{{ route('calendar.index') }}"><i class="icon fa fa-circle-o"></i> {{ __('Calendar') }}</a></li>
                     <li><a class="treeview-item {{ request()->is('services*') ? 'active' : '' }}"
                             href="{{ route('services.index') }}"><i class="icon fa fa-circle-o"></i> {{ __('Church Services') }}</a></li>
+                    <li><a class="treeview-item {{ request()->is('guests*') ? 'active' : '' }}"
+                            href="{{ route('guests.index') }}"><i class="icon fa fa-handshake-o"></i> {{ __('Guests') }}</a></li>
                     <li><a class="treeview-item {{ request()->is('attendance*') ? 'active' : '' }}"
                             href="{{ route('attendance.index') }}"><i class="icon fa fa-circle-o"></i> {{ __('Attendance') }}</a></li>
                 </ul>

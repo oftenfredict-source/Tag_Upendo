@@ -11,6 +11,53 @@ use Illuminate\Support\Facades\Log;
 
 class MemberAccountService
 {
+    public const PLACEHOLDER_EMAIL_DOMAIN = 'members.tagupendo.local';
+
+    public static function isPlaceholderEmail(?string $email): bool
+    {
+        if (! filled($email)) {
+            return false;
+        }
+
+        return str_ends_with(strtolower(trim($email)), '@'.self::PLACEHOLDER_EMAIL_DOMAIN);
+    }
+
+    public static function resolveUserEmail(Member $member, ?User $existingUser = null): ?string
+    {
+        if (! filled($member->email)) {
+            return null;
+        }
+
+        $email = strtolower(trim((string) $member->email));
+
+        $query = User::where('email', $email);
+
+        if ($existingUser) {
+            $query->where('id', '!=', $existingUser->id);
+        } elseif ($member->exists && $member->user) {
+            $query->where('id', '!=', $member->user->id);
+        }
+
+        if ($query->exists()) {
+            return null;
+        }
+
+        return $email;
+    }
+
+    public function syncUserEmail(Member $member): void
+    {
+        $user = $member->user;
+        if (! $user) {
+            return;
+        }
+
+        $email = self::resolveUserEmail($member, $user);
+
+        if ($user->email !== $email) {
+            $user->update(['email' => $email]);
+        }
+    }
     public static function generateMemberCode(): string
     {
         return DB::transaction(function () {
@@ -70,7 +117,7 @@ class MemberAccountService
         User::create([
             'name' => $member->name,
             'username' => $memberCode,
-            'email' => strtolower(str_replace('-', '', $memberCode)) . '@members.tagupendo.local',
+            'email' => self::resolveUserEmail($member),
             'password' => Hash::make($plainPassword),
             'role' => 'member',
             'member_id' => $member->id,

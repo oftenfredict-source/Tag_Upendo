@@ -537,6 +537,7 @@ class MemberController extends Controller
 
         if ($member->user) {
             $member->user->update(['name' => $member->name]);
+            app(MemberAccountService::class)->syncUserEmail($member->fresh());
         }
 
         ActivityLogger::log('member.update', __('Updated member profile: :name', ['name' => $member->name]));
@@ -610,6 +611,7 @@ class MemberController extends Controller
 
         if ($user) {
             $user->update(['password' => Hash::make($plainPassword)]);
+            $accountService->syncUserEmail($member->fresh());
         } else {
             $result = $accountService->provision($member->fresh());
             if (! $result) {

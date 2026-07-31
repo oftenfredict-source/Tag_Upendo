@@ -24,6 +24,7 @@ use App\Http\Controllers\AnnouncementController;
 use App\Http\Controllers\MemberRegistrationRequestController;
 use App\Http\Controllers\PublicRegistrationController;
 use App\Http\Controllers\RegistrationLinkController;
+use App\Http\Controllers\GuestController;
 
 Route::get('/', function () {
     return redirect('/login');
@@ -76,6 +77,8 @@ Route::middleware(['auth', 'activity.log'])->group(function () {
 
         Route::get('services', [\App\Http\Controllers\ServiceController::class, 'index'])->name('services.index');
         Route::get('services/{event}', [\App\Http\Controllers\ServiceController::class, 'show'])->name('services.show');
+        Route::get('guests', [\App\Http\Controllers\GuestController::class, 'index'])->name('guests.index');
+        Route::post('guests', [\App\Http\Controllers\GuestController::class, 'store'])->name('guests.store');
 
         Route::get('church-leaders', [ChurchLeaderController::class, 'index'])->name('church-leaders.index');
 
@@ -127,6 +130,14 @@ Route::middleware(['auth', 'activity.log'])->group(function () {
             Route::get('services/{event}/edit', [\App\Http\Controllers\ServiceController::class, 'edit'])->name('services.edit');
             Route::put('services/{event}', [\App\Http\Controllers\ServiceController::class, 'update'])->name('services.update');
             Route::delete('services/{event}', [\App\Http\Controllers\ServiceController::class, 'destroy'])->name('services.destroy');
+
+            Route::post('guests/{guest}/reminder', [GuestController::class, 'sendReminder'])->name('guests.reminder');
+            Route::post('guests/{guest}/thank-you', [GuestController::class, 'sendThankYou'])->name('guests.thank-you');
+            Route::post('guests/{guest}/mark-attended', [GuestController::class, 'markAttended'])->name('guests.mark-attended');
+            Route::post('guests/{guest}/mark-missed', [GuestController::class, 'markMissed'])->name('guests.mark-missed');
+            Route::post('guests/{guest}/convert-visited', [GuestController::class, 'convertToVisited'])->name('guests.convert-visited');
+            Route::put('guests/{guest}', [GuestController::class, 'update'])->name('guests.update');
+            Route::delete('guests/{guest}', [GuestController::class, 'destroy'])->name('guests.destroy');
 
             Route::get('leadership', [LeadershipController::class, 'index'])->name('leadership.index');
             Route::post('leadership', [LeadershipController::class, 'store'])->name('leadership.store');
