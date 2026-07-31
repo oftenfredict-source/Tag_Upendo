@@ -55,13 +55,15 @@
             </div>
         </div>
         <div class="col-md-6 col-lg-3">
+            <a href="{{ route('members.children') }}" class="text-decoration-none">
             <div class="widget-small danger coloured-icon">
                 <i class="icon fa fa-child fa-3x"></i>
                 <div class="info">
-                    <h4>{{ __('Children') }}</h4>
+                    <h4>{{ __('Children') }} (0–18)</h4>
                     <p><b>{{ number_format($stats['children']) }}</b></p>
                 </div>
             </div>
+            </a>
         </div>
     </div>
 

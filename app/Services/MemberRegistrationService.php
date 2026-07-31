@@ -6,8 +6,10 @@ use App\Models\Member;
 use App\Models\MemberRegistrationRequest;
 use App\Models\RegistrationLink;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use InvalidArgumentException;
 
 class MemberRegistrationService
@@ -74,7 +76,139 @@ class MemberRegistrationService
             }
         }
 
-        return $rules;
+        return array_merge($rules, self::childrenValidationRules());
+    }
+
+    /** @return array<string, mixed> */
+    public static function childrenValidationRules(): array
+    {
+        return [
+            'has_children' => 'nullable|in:0,1',
+            'children' => 'nullable|array',
+            'children.*.name' => 'nullable|string|max:255',
+            'children.*.gender' => 'nullable|in:male,female',
+            'children.*.date_of_birth' => self::childDateOfBirthValidationRules(),
+        ];
+    }
+
+    /** @return array<int, string|\Closure> */
+    public static function childDateOfBirthValidationRules(): array
+    {
+        return [
+            'nullable',
+            'date',
+            'before_or_equal:today',
+            function (string $attribute, mixed $value, \Closure $fail): void {
+                if (! $value) {
+                    return;
+                }
+
+                if (self::childAgeFromDate($value) > Member::MAX_CHILD_AGE) {
+                    $fail(__('Child must be 18 years or younger'));
+                }
+            },
+        ];
+    }
+
+    public static function childAgeFromDate(?string $dateOfBirth): ?int
+    {
+        if (! $dateOfBirth) {
+            return null;
+        }
+
+        return Carbon::parse($dateOfBirth)->age;
+    }
+
+    /** @param array<string, mixed> $child */
+    public static function resolveChildDateOfBirth(array $child): ?string
+    {
+        if (! empty($child['date_of_birth'])) {
+            return (string) $child['date_of_birth'];
+        }
+
+        if (isset($child['birth_year']) && $child['birth_year'] !== '') {
+            return self::dateOfBirthFromBirthYear((int) $child['birth_year']);
+        }
+
+        return null;
+    }
+
+    /** @return array<int, array{name: string, gender: ?string, date_of_birth: ?string}> */
+    public static function normalizeChildrenInput(array $validated): array
+    {
+        if (($validated['has_children'] ?? '0') !== '1') {
+            return [];
+        }
+
+        $children = [];
+
+        foreach ($validated['children'] ?? [] as $child) {
+            $name = trim((string) ($child['name'] ?? ''));
+            if ($name === '') {
+                continue;
+            }
+
+            $dateOfBirth = self::resolveChildDateOfBirth($child);
+
+            $children[] = [
+                'name' => $name,
+                'gender' => $child['gender'] ?? null,
+                'date_of_birth' => $dateOfBirth,
+            ];
+        }
+
+        return $children;
+    }
+
+    /** @param array<int, array{name: string, gender: ?string, date_of_birth: ?string}> $children */
+    public function createChildren(Member $parent, array $children): int
+    {
+        $count = 0;
+
+        foreach ($children as $child) {
+            self::assertValidChildDateOfBirth($child['date_of_birth'] ?? null);
+
+            Member::create([
+                'name' => $child['name'],
+                'gender' => $child['gender'] ?? null,
+                'date_of_birth' => $child['date_of_birth'] ?? null,
+                'parent_id' => $parent->id,
+                'phone_number' => $parent->phone_number,
+                'residence_mkoa' => $parent->residence_mkoa,
+                'residence_wilaya' => $parent->residence_wilaya,
+                'address' => $parent->address,
+                'department_id' => $parent->department_id,
+                'member_type' => 'member',
+                'marital_status' => 'single',
+                'is_baptized' => false,
+            ]);
+            $count++;
+        }
+
+        return $count;
+    }
+
+    public static function dateOfBirthFromBirthYear(?int $birthYear): ?string
+    {
+        if (! $birthYear) {
+            return null;
+        }
+
+        return sprintf('%d-01-01', $birthYear);
+    }
+
+    public static function assertValidChildDateOfBirth(?string $dateOfBirth): void
+    {
+        if (! $dateOfBirth) {
+            return;
+        }
+
+        $age = self::childAgeFromDate($dateOfBirth);
+        if ($age === null || $age > Member::MAX_CHILD_AGE) {
+            throw ValidationException::withMessages([
+                'date_of_birth' => __('Child must be 18 years or younger'),
+            ]);
+        }
     }
 
     /** @return array{member: Member, accounts: array<int, array<string, string>>} */
@@ -84,6 +218,8 @@ class MemberRegistrationService
         if (! $validated['is_baptized']) {
             $validated['baptism_date'] = null;
         }
+
+        $children = self::normalizeChildrenInput($validated);
 
         $memberData = collect($validated)->except([
             'spouse_is_member',
@@ -102,12 +238,14 @@ class MemberRegistrationService
             'spouse_date_joined',
             'spouse_birth_mkoa',
             'spouse_birth_wilaya',
+            'has_children',
+            'children',
         ])->all();
 
         $member = null;
         $newAccounts = [];
 
-        DB::transaction(function () use (&$member, &$newAccounts, $memberData, $validated) {
+        DB::transaction(function () use (&$member, &$newAccounts, $memberData, $validated, $children) {
             $member = Member::create($memberData);
             $member->update(['member_code' => MemberAccountService::generateMemberCode()]);
 
@@ -132,6 +270,10 @@ class MemberRegistrationService
                         $newAccounts[] = $spouseAccount;
                     }
                 }
+            }
+
+            if ($children !== []) {
+                $this->createChildren($member->fresh(), $children);
             }
         });
 

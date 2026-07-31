@@ -55,6 +55,7 @@ Route::middleware(['auth', 'activity.log'])->group(function () {
 
     Route::middleware('staff')->group(function () {
         Route::get('members', [MemberController::class, 'index'])->name('members.index');
+        Route::get('members/children', [MemberController::class, 'children'])->name('members.children');
         Route::get('members/registration-link', [RegistrationLinkController::class, 'index'])->name('members.registration-link');
         Route::post('registration-links', [RegistrationLinkController::class, 'store'])->name('registration-links.store');
         Route::patch('registration-links/{registrationLink}/toggle', [RegistrationLinkController::class, 'toggle'])->name('registration-links.toggle');
@@ -85,6 +86,7 @@ Route::middleware(['auth', 'activity.log'])->group(function () {
         });
 
         Route::middleware('admin')->group(function () {
+            Route::get('members/children/create', [MemberController::class, 'createChild'])->name('members.children.create');
             Route::get('members/create', [MemberController::class, 'create'])->name('members.create');
             Route::post('members', [MemberController::class, 'store'])->name('members.store');
             Route::get('members/{member}/edit', [MemberController::class, 'edit'])->name('members.edit');

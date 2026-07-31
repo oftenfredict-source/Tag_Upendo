@@ -7,6 +7,7 @@ use App\Models\Member;
 use App\Models\MemberRegistrationRequest;
 use App\Services\ActivityLogger;
 use App\Services\MemberAccountService;
+use App\Services\MemberRegistrationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -73,7 +74,7 @@ class MemberController extends Controller
             'members' => Member::active()->whereNull('parent_id')->where('member_type', 'member')->count(),
             'visitors' => Member::active()->where('member_type', 'visitor')->count(),
             'new_converts' => Member::active()->where('member_type', 'new_convert')->count(),
-            'children' => Member::active()->whereNotNull('parent_id')->count(),
+            'children' => Member::active()->childrenByAge()->count(),
             'archived' => Member::archived()->count(),
         ];
 
@@ -84,6 +85,40 @@ class MemberController extends Controller
         return view('members.index', compact('members', 'departments', 'stats', 'pendingRegistrations', 'showArchived'));
     }
 
+    public function children(Request $request)
+    {
+        $query = Member::with(['parent', 'department'])
+            ->active()
+            ->childrenByAge();
+
+        if ($search = $request->input('search')) {
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                    ->orWhere('guardian_name', 'like', "%{$search}%")
+                    ->orWhere('guardian_phone', 'like', "%{$search}%")
+                    ->orWhereHas('parent', function ($parentQuery) use ($search) {
+                        $parentQuery->where('name', 'like', "%{$search}%");
+                    });
+            });
+        }
+
+        if ($request->filled('gender')) {
+            $query->where('gender', $request->gender);
+        }
+
+        $children = $query->orderBy('name')->paginate(20)->withQueryString();
+
+        $baseQuery = Member::active()->childrenByAge();
+
+        $stats = [
+            'total' => (clone $baseQuery)->count(),
+            'male' => (clone $baseQuery)->where('gender', 'male')->count(),
+            'female' => (clone $baseQuery)->where('gender', 'female')->count(),
+        ];
+
+        return view('members.children', compact('children', 'stats'));
+    }
+
     public function create(Request $request)
     {
         $departments = Department::orderBy('name')->get();
@@ -91,9 +126,7 @@ class MemberController extends Controller
         sort($tzRegionNames);
 
         if ($request->filled('parent_id')) {
-            $parent = Member::findOrFail($request->parent_id);
-
-            return view('members.create-child', compact('parent'));
+            return redirect()->route('members.children.create', ['parent_id' => $request->parent_id]);
         }
 
         $eligibleSpouses = Member::whereNull('spouse_id')
@@ -104,9 +137,24 @@ class MemberController extends Controller
         return view('members.create', compact('departments', 'tzRegionNames', 'eligibleSpouses'));
     }
 
+    public function createChild(Request $request)
+    {
+        $parent = null;
+        if ($request->filled('parent_id')) {
+            $parent = Member::active()->adults()->findOrFail($request->parent_id);
+        }
+
+        $parents = Member::active()
+            ->adults()
+            ->orderBy('name')
+            ->get(['id', 'name', 'phone_number']);
+
+        return view('members.create-child', compact('parent', 'parents'));
+    }
+
     public function store(Request $request)
     {
-        if ($request->filled('parent_id') && $request->boolean('is_child')) {
+        if ($request->boolean('is_child')) {
             return $this->storeChild($request);
         }
 
@@ -163,7 +211,10 @@ class MemberController extends Controller
             }
         }
 
+        $rules = array_merge($rules, MemberRegistrationService::childrenValidationRules());
+
         $validated = $request->validate($rules);
+        $children = MemberRegistrationService::normalizeChildrenInput($validated);
 
         $validated['is_baptized'] = (bool) $validated['is_baptized'];
         if (! $validated['is_baptized']) {
@@ -187,12 +238,14 @@ class MemberController extends Controller
             'spouse_date_joined',
             'spouse_birth_mkoa',
             'spouse_birth_wilaya',
+            'has_children',
+            'children',
         ])->all();
 
         $member = null;
         $newAccounts = [];
 
-        DB::transaction(function () use (&$member, &$newAccounts, $memberData, $validated) {
+        DB::transaction(function () use (&$member, &$newAccounts, $memberData, $validated, $children) {
             $member = Member::create($memberData);
             $member->update(['member_code' => MemberAccountService::generateMemberCode()]);
 
@@ -218,11 +271,18 @@ class MemberController extends Controller
                     }
                 }
             }
+
+            if ($children !== []) {
+                app(MemberRegistrationService::class)->createChildren($member->fresh(), $children);
+            }
         });
 
         $message = __('Member registered successfully.');
         if ($member->fresh()->spouse_id) {
             $message = __('Member and spouse registered successfully.');
+        }
+        if ($children !== []) {
+            $message = __('Member registered with :count children.', ['count' => count($children)]);
         }
 
         return redirect()
@@ -296,37 +356,68 @@ class MemberController extends Controller
     protected function storeChild(Request $request)
     {
         $validated = $request->validate([
-            'parent_id' => 'required|exists:members,id',
+            'parent_mode' => 'required|in:member,external',
+            'parent_id' => 'required_if:parent_mode,member|nullable|exists:members,id',
+            'guardian_name' => 'required_if:parent_mode,external|nullable|string|max:255',
+            'guardian_phone' => 'required_if:parent_mode,external|nullable|string|max:20',
             'name' => 'required|string|max:255',
             'gender' => 'nullable|in:male,female',
-            'date_of_birth' => 'nullable|date|before:today',
+            'date_of_birth' => MemberRegistrationService::childDateOfBirthValidationRules(),
         ]);
 
-        $parent = Member::findOrFail($validated['parent_id']);
+        $dateOfBirth = $validated['date_of_birth'] ?? null;
+        MemberRegistrationService::assertValidChildDateOfBirth($dateOfBirth);
 
-        $member = Member::create([
+        $childData = [
             'name' => $validated['name'],
             'gender' => $validated['gender'] ?? null,
-            'date_of_birth' => $validated['date_of_birth'] ?? null,
-            'parent_id' => $parent->id,
-            'phone_number' => $parent->phone_number,
-            'residence_mkoa' => $parent->residence_mkoa,
-            'residence_wilaya' => $parent->residence_wilaya,
-            'address' => $parent->address,
-            'department_id' => $parent->department_id,
+            'date_of_birth' => $dateOfBirth,
             'member_type' => 'member',
             'marital_status' => 'single',
             'is_baptized' => false,
-        ]);
+        ];
 
-        $message = "Mtoto {$member->name} amesajiliwa.";
-        if ($parent->spouse) {
-            $message .= " Ataonekana kwa {$parent->name} na {$parent->spouse->name}.";
+        if ($validated['parent_mode'] === 'member') {
+            $parent = Member::findOrFail($validated['parent_id']);
+
+            $member = Member::create(array_merge($childData, [
+                'parent_id' => $parent->id,
+                'guardian_name' => null,
+                'guardian_phone' => null,
+                'phone_number' => $parent->phone_number,
+                'residence_mkoa' => $parent->residence_mkoa,
+                'residence_wilaya' => $parent->residence_wilaya,
+                'address' => $parent->address,
+                'department_id' => $parent->department_id,
+                'emergency_contact_name' => $parent->name,
+                'emergency_contact_phone' => $parent->phone_number,
+            ]));
+
+            $message = __('Child :name registered successfully.', ['name' => $member->name]);
+            if ($parent->spouse) {
+                $message .= ' '. __('Visible to :parent and :spouse.', [
+                    'parent' => $parent->name,
+                    'spouse' => $parent->spouse->name,
+                ]);
+            }
+
+            return redirect()
+                ->route('members.show', $parent)
+                ->with('success', $message);
         }
 
+        $member = Member::create(array_merge($childData, [
+            'parent_id' => null,
+            'guardian_name' => $validated['guardian_name'],
+            'guardian_phone' => $validated['guardian_phone'],
+            'phone_number' => $validated['guardian_phone'],
+            'emergency_contact_name' => $validated['guardian_name'],
+            'emergency_contact_phone' => $validated['guardian_phone'],
+        ]));
+
         return redirect()
-            ->route('members.show', $parent)
-            ->with('success', $message);
+            ->route('members.children')
+            ->with('success', __('Child :name registered successfully.', ['name' => $member->name]));
     }
 
     public function show(Member $member)

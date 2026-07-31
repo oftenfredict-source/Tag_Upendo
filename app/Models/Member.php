@@ -30,6 +30,8 @@ class Member extends Model
         'department_id',
         'spouse_id',
         'parent_id',
+        'guardian_name',
+        'guardian_phone',
         'archived_at',
         'archive_reason',
         'archived_by',
@@ -135,7 +137,48 @@ class Member extends Model
 
     public function isChild(): bool
     {
-        return $this->parent_id !== null;
+        return $this->parent_id !== null || $this->hasExternalGuardian();
+    }
+
+    public function getAgeAttribute(): ?int
+    {
+        if (! $this->date_of_birth) {
+            return null;
+        }
+
+        return (int) $this->date_of_birth->age;
+    }
+
+    public function getBirthYearAttribute(): ?int
+    {
+        if (! $this->date_of_birth) {
+            return null;
+        }
+
+        return (int) $this->date_of_birth->format('Y');
+    }
+
+    public function hasExternalGuardian(): bool
+    {
+        return $this->parent_id === null && filled($this->guardian_name);
+    }
+
+    public function guardianDisplayName(): ?string
+    {
+        if ($this->parent) {
+            return $this->parent->name;
+        }
+
+        return $this->guardian_name;
+    }
+
+    public function guardianDisplayPhone(): ?string
+    {
+        if ($this->parent) {
+            return $this->parent->phone_number;
+        }
+
+        return $this->guardian_phone;
     }
 
     public function hasSpouse(): bool
@@ -143,9 +186,19 @@ class Member extends Model
         return $this->spouse_id !== null;
     }
 
+    public const MAX_CHILD_AGE = 18;
+
     public function scopeAdults($query)
     {
         return $query->whereNull('parent_id');
+    }
+
+    /** Watoto wenye umri wa miaka 0–18 (kulingana na tarehe ya kuzaliwa). */
+    public function scopeChildrenByAge($query, int $minAge = 0, int $maxAge = self::MAX_CHILD_AGE)
+    {
+        return $query->whereNotNull('date_of_birth')
+            ->whereRaw('TIMESTAMPDIFF(YEAR, date_of_birth, CURDATE()) >= ?', [$minAge])
+            ->whereRaw('TIMESTAMPDIFF(YEAR, date_of_birth, CURDATE()) <= ?', [$maxAge]);
     }
 
     public function scopePastors($query)

@@ -46,7 +46,11 @@
         <div class="col-md-12">
             @if($member->parent)
                 <a href="{{ route('members.show', $member->parent) }}" class="btn btn-secondary">
-                    <i class="fa fa-arrow-left"></i> Rudi kwa Mzazi
+                    <i class="fa fa-arrow-left"></i> {{ __('Back to parent') }}
+                </a>
+            @elseif($member->hasExternalGuardian())
+                <a href="{{ route('members.children') }}" class="btn btn-secondary">
+                    <i class="fa fa-arrow-left"></i> {{ __('Children') }}
                 </a>
             @elseif(!auth()->user()->isMember())
                 <a href="{{ route('members.index') }}" class="btn btn-secondary">
@@ -62,41 +66,59 @@
                     <i class="fa fa-pencil"></i> {{ __('Edit') }}
                 </a>
             @endif
-            @if(auth()->user()->isFullStaff() && !$member->parent_id && !$member->isArchived())
+            @if(auth()->user()->isAdmin() && !$member->parent_id && !$member->isArchived())
                 <a href="{{ route('follow-ups.create', $member) }}" class="btn btn-info">
                     <i class="fa fa-envelope"></i> Follow Up / SMS
                 </a>
-                <a href="{{ route('members.create', ['parent_id' => $member->id]) }}" class="btn btn-primary">
-                    <i class="fa fa-child"></i> Ongeza Mtoto
+                <a href="{{ route('members.children.create', ['parent_id' => $member->id]) }}" class="btn btn-primary">
+                    <i class="fa fa-child"></i> {{ __('Add child') }}
+                </a>
+            @endif
+            @if(auth()->user()->isAdmin() && $member->isChild() && !$member->parent_id)
+                <a href="{{ route('members.children') }}" class="btn btn-secondary">
+                    <i class="fa fa-child"></i> {{ __('Children') }}
                 </a>
             @endif
         </div>
     </div>
 
-    @if($member->parent_id)
+    @if($member->isChild())
         {{-- WASIFU WA MTOTO --}}
         <div class="alert alert-info">
-            <strong>{{ $member->name }} ni mtoto</strong> aliyesajiliwa kwa fomu fupi (jina, jinsia, tarehe ya kuzaliwa tu).
-            Taarifa nyingine zilichukuliwa <strong>kutoka kwa mzazi</strong> ili asihitaji kujazwa tena.
+            <strong>{{ $member->name }}</strong> — {{ __('Child profile (ages 0–18)') }}
         </div>
 
         <div class="row">
             <div class="col-md-6">
                 <div class="tile" style="border-left: 4px solid #940000;">
-                    <h3 class="tile-title"><i class="fa fa-pencil"></i> Uliyojaza (Fomu ya Mtoto)</h3>
+                    <h3 class="tile-title"><i class="fa fa-pencil"></i> {{ __('Child information') }}</h3>
                     <div class="tile-body">
                         <table class="table table-borderless mb-0">
                             <tr>
-                                <th width="45%">Jina</th>
+                                <th width="45%">{{ __('Name') }}</th>
                                 <td><strong>{{ $member->name }}</strong></td>
                             </tr>
                             <tr>
-                                <th>Jinsia</th>
+                                <th>{{ __('Gender') }}</th>
                                 <td>{{ $member->gender ? ucfirst($member->gender) : '-' }}</td>
                             </tr>
                             <tr>
-                                <th>Tarehe ya Kuzaliwa</th>
+                                <th>{{ __('Date of Birth') }}</th>
                                 <td>{{ $member->date_of_birth ? $member->date_of_birth->format('d/m/Y') : '-' }}</td>
+                            </tr>
+                            <tr>
+                                <th>{{ __('Age') }}</th>
+                                <td>
+                                    @if($member->age !== null)
+                                        @if($member->age === 1)
+                                            {{ __(':count year', ['count' => 1]) }}
+                                        @else
+                                            {{ __(':count years', ['count' => $member->age]) }}
+                                        @endif
+                                    @else
+                                        -
+                                    @endif
+                                </td>
                             </tr>
                         </table>
                     </div>
@@ -104,25 +126,34 @@
             </div>
             <div class="col-md-6">
                 <div class="tile" style="border-left: 4px solid #6c757d;">
-                    <h3 class="tile-title"><i class="fa fa-home"></i> Familia — Wazazi</h3>
+                    <h3 class="tile-title"><i class="fa fa-home"></i> {{ __('Parent / Guardian') }}</h3>
                     <div class="tile-body">
-                        <p class="mb-2">
-                            <a href="{{ route('members.show', $member->parent) }}" class="btn btn-sm btn-outline-primary">
-                                {{ $member->parent->name }}
-                            </a>
-                            @if($member->parent->spouse)
-                                &amp;
-                                <a href="{{ route('members.show', $member->parent->spouse) }}" class="btn btn-sm btn-outline-primary">
-                                    {{ $member->parent->spouse->name }}
+                        @if($member->parent)
+                            <p class="mb-2">
+                                <a href="{{ route('members.show', $member->parent) }}" class="btn btn-sm btn-outline-primary">
+                                    {{ $member->parent->name }}
                                 </a>
+                                @if($member->parent->spouse)
+                                    &amp;
+                                    <a href="{{ route('members.show', $member->parent->spouse) }}" class="btn btn-sm btn-outline-primary">
+                                        {{ $member->parent->spouse->name }}
+                                    </a>
+                                @endif
+                            </p>
+                            <small class="text-muted">{{ __('Church member parent(s)') }}</small>
+                        @elseif($member->guardian_name)
+                            <p class="mb-1"><strong>{{ $member->guardian_name }}</strong></p>
+                            @if($member->guardian_phone)
+                                <p class="mb-0 text-muted"><i class="fa fa-phone"></i> {{ $member->guardian_phone }}</p>
                             @endif
-                        </p>
-                        <small class="text-muted">Hawa ndio wazazi waliosajiliwa kwenye mfumo.</small>
+                            <small class="text-muted d-block mt-2">{{ __('Guardian is not a church member') }}</small>
+                        @endif
                     </div>
                 </div>
             </div>
         </div>
 
+        @if($member->parent)
         <div class="row">
             <div class="col-md-12">
                 <div class="tile">
@@ -175,6 +206,7 @@
                 </div>
             </div>
         </div>
+        @endif
 
     @else
         {{-- WASIFU WA MTU MZKUU --}}
@@ -233,13 +265,15 @@
                                 <h6 class="text-muted"><i class="fa fa-child"></i> Watoto</h6>
                                 @if($familyChildren->count())
                                     @if($member->spouse)
-                                        <p class="text-muted small">Watoto wa familia ({{ $member->name }} &amp; {{ $member->spouse->name }})</p>
+                                        <p class="text-muted small">{{ __('Family children') }} ({{ $member->name }} &amp; {{ $member->spouse->name }})</p>
                                     @endif
                                     <table class="table table-sm table-bordered">
                                         <thead>
                                             <tr>
-                                                <th>Jina</th>
-                                                <th>Tarehe Kuzaliwa</th>
+                                                <th>{{ __('Name') }}</th>
+                                                <th>{{ __('Gender') }}</th>
+                                                <th>{{ __('Date of Birth') }}</th>
+                                                <th>{{ __('Age') }}</th>
                                                 <th></th>
                                             </tr>
                                         </thead>
@@ -247,7 +281,19 @@
                                             @foreach($familyChildren as $child)
                                                 <tr>
                                                     <td>{{ $child->name }}</td>
+                                                    <td>{{ $child->gender === 'male' ? __('Male') : ($child->gender === 'female' ? __('Female') : '-') }}</td>
                                                     <td>{{ $child->date_of_birth ? $child->date_of_birth->format('d/m/Y') : '-' }}</td>
+                                                    <td>
+                                                        @if($child->age !== null)
+                                                            @if($child->age === 1)
+                                                                {{ __(':count year', ['count' => 1]) }}
+                                                            @else
+                                                                {{ __(':count years', ['count' => $child->age]) }}
+                                                            @endif
+                                                        @else
+                                                            -
+                                                        @endif
+                                                    </td>
                                                     <td>
                                                         <a href="{{ route('members.show', $child) }}" class="btn btn-sm btn-info">Angalia</a>
                                                     </td>
@@ -258,8 +304,8 @@
                                 @else
                                     <p class="text-muted">Hakuna watoto bado.</p>
                                 @endif
-                                <a href="{{ route('members.create', ['parent_id' => $member->id]) }}" class="btn btn-primary btn-sm">
-                                    <i class="fa fa-plus"></i> Ongeza Mtoto
+                                <a href="{{ route('members.children.create', ['parent_id' => $member->id]) }}" class="btn btn-primary btn-sm">
+                                    <i class="fa fa-plus"></i> {{ __('Add child') }}
                                 </a>
                             </div>
                         </div>

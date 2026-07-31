@@ -190,8 +190,10 @@
                     <i class="treeview-indicator fa fa-angle-right"></i>
                 </a>
                 <ul class="treeview-menu">
-                    <li><a class="treeview-item {{ request()->routeIs('members.index', 'members.show') ? 'active' : '' }}"
+                    <li><a class="treeview-item {{ request()->routeIs('members.index') && request('status') !== 'archived' ? 'active' : '' }}"
                             href="{{ route('members.index') }}"><i class="icon fa fa-circle-o"></i> {{ __('View Members') }}</a></li>
+                    <li><a class="treeview-item {{ request()->routeIs('members.children') ? 'active' : '' }}"
+                            href="{{ route('members.children') }}"><i class="icon fa fa-child"></i> {{ __('Children') }}</a></li>
                     @if($authUser->isFullStaff())
                     <li><a class="treeview-item {{ request()->routeIs('members.create') ? 'active' : '' }}"
                             href="{{ route('members.create') }}"><i class="icon fa fa-circle-o"></i> {{ __('Add Member') }}</a></li>

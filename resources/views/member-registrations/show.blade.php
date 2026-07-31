@@ -98,6 +98,52 @@
                             <tr><th>{{ __('Spouse place of birth') }}</th><td>{{ $place($p['spouse_birth_mkoa'] ?? null, $p['spouse_birth_wilaya'] ?? null) }}</td></tr>
                         </table>
                     @endif
+
+                    @php
+                        $registrationChildren = \App\Services\MemberRegistrationService::normalizeChildrenInput($p);
+                    @endphp
+                    @if(count($registrationChildren))
+                        <hr>
+                        <h5 class="text-muted mb-3">{{ __('Children') }}</h5>
+                        <table class="table table-sm table-bordered">
+                            <thead>
+                                <tr>
+                                    <th>{{ __('Name') }}</th>
+                                    <th>{{ __('Gender') }}</th>
+                                    <th>{{ __('Date of Birth') }}</th>
+                                    <th>{{ __('Age') }}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($registrationChildren as $child)
+                                    @php
+                                        $childAge = ! empty($child['date_of_birth'])
+                                            ? \App\Services\MemberRegistrationService::childAgeFromDate($child['date_of_birth'])
+                                            : null;
+                                        $childDobDisplay = ! empty($child['date_of_birth'])
+                                            ? \Carbon\Carbon::parse($child['date_of_birth'])->format('d/m/Y')
+                                            : '—';
+                                    @endphp
+                                    <tr>
+                                        <td>{{ $child['name'] }}</td>
+                                        <td>{{ $genderLabel($child['gender'] ?? null) }}</td>
+                                        <td>{{ $childDobDisplay }}</td>
+                                        <td>
+                                            @if($childAge !== null)
+                                                @if($childAge === 1)
+                                                    {{ __(':count year', ['count' => 1]) }}
+                                                @else
+                                                    {{ __(':count years', ['count' => $childAge]) }}
+                                                @endif
+                                            @else
+                                                —
+                                            @endif
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    @endif
                 </div>
             </div>
         </div>

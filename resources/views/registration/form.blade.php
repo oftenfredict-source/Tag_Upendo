@@ -11,7 +11,7 @@
         'spouse_department_id', 'spouse_is_baptized', 'spouse_baptism_date', 'spouse_date_joined',
         'spouse_birth_mkoa', 'spouse_birth_wilaya',
     ]);
-    if ($spouseErrors || $errors->has('name') || $errors->has('gender') || $errors->has('marital_status') || $errors->has('date_of_birth') || $errors->has('occupation')) {
+    if ($spouseErrors || $errors->has('name') || $errors->has('gender') || $errors->has('marital_status') || $errors->has('date_of_birth') || $errors->has('occupation') || $errors->has('has_children') || $errors->has('children')) {
         $errorStep = 1;
     } elseif ($errors->has('phone_number') || $errors->has('email') || $errors->has('emergency_contact_name') || $errors->has('emergency_contact_phone')) {
         $errorStep = 3;
@@ -273,6 +273,8 @@
                                     </div>
                                 </div>
                             </div>
+
+                            @include('partials.children-registration-fields')
                         </div>
 
                         {{-- Step 2: Location --}}
@@ -476,7 +478,7 @@
                                 </div>
                             </div>
 
-                            <div id="summarySpouseCard" class="summary-card mb-0" hidden>
+                            <div id="summarySpouseCard" class="summary-card mb-3" hidden>
                                 <div class="summary-card-header">{{ __('Spouse information') }}</div>
                                 <div class="summary-card-body">
                                     <div class="row">
@@ -502,6 +504,23 @@
                                             </table>
                                         </div>
                                     </div>
+                                </div>
+                            </div>
+
+                            <div id="summaryChildrenCard" class="summary-card mb-0" hidden>
+                                <div class="summary-card-header">{{ __('Children') }}</div>
+                                <div class="summary-card-body">
+                                    <table class="table table-sm table-bordered summary-table mb-0">
+                                        <thead>
+                                            <tr>
+                                                <th>{{ __('Name') }}</th>
+                                                <th>{{ __('Gender') }}</th>
+                                                <th>{{ __('Date of Birth') }}</th>
+                                                <th>{{ __('Age') }}</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="summaryChildrenBody"></tbody>
+                                    </table>
                                 </div>
                             </div>
                         </div>
@@ -873,46 +892,51 @@
 
         if (!isMarried || !spouseIsMember) {
             if (spouseCard) spouseCard.hidden = true;
-            return;
+        } else {
+            if (spouseCard) spouseCard.hidden = false;
+            var mode = val('spouse_mode');
+            setText('sum-spouse-mode', mode === 'existing' ? labels.linkExisting : labels.registerNew);
+
+            if (mode === 'existing') {
+                var existing = selectText('existing_spouse_id');
+                setText('sum-spouse-name', (!existing || existing.indexOf('--') === 0) ? labels.empty : existing);
+                setText('sum-spouse-gender', labels.empty);
+                setText('sum-spouse-dob', labels.empty);
+                setText('sum-spouse-phone', labels.empty);
+                setText('sum-spouse-email', labels.empty);
+                setText('sum-spouse-occupation', labels.empty);
+                setText('sum-spouse-type', labels.empty);
+                setText('sum-spouse-department', labels.empty);
+                setText('sum-spouse-baptized', labels.empty);
+                setText('sum-spouse-baptism-date', labels.empty);
+                setText('sum-spouse-joined', labels.empty);
+                setText('sum-spouse-birth', labels.empty);
+            } else {
+                setText('sum-spouse-name', val('spouse_name'));
+                setText('sum-spouse-gender', display(val('spouse_gender'), { male: labels.male, female: labels.female }));
+                setText('sum-spouse-dob', val('spouse_date_of_birth'));
+                setText('sum-spouse-phone', val('spouse_phone_number'));
+                setText('sum-spouse-email', val('spouse_email'));
+                setText('sum-spouse-occupation', val('spouse_occupation'));
+                setText('sum-spouse-type', display(val('spouse_member_type'), {
+                    member: labels.member, visitor: labels.visitor, new_convert: labels.new_convert
+                }));
+                var spouseDept = selectText('spouse_department_id');
+                setText('sum-spouse-department', (!spouseDept || spouseDept.indexOf('--') === 0) ? labels.empty : spouseDept);
+                var spouseBaptized = val('spouse_is_baptized');
+                setText('sum-spouse-baptized', spouseBaptized === '1' ? labels.yes : (spouseBaptized === '0' ? labels.no : labels.empty));
+                setText('sum-spouse-baptism-date', spouseBaptized === '1' ? val('spouse_baptism_date') : labels.empty);
+                setText('sum-spouse-joined', val('spouse_date_joined'));
+                setText('sum-spouse-birth', place(val('spouse_birth_mkoa'), val('spouse_birth_wilaya')));
+            }
         }
 
-        if (spouseCard) spouseCard.hidden = false;
-        var mode = val('spouse_mode');
-        setText('sum-spouse-mode', mode === 'existing' ? labels.linkExisting : labels.registerNew);
-
-        if (mode === 'existing') {
-            var existing = selectText('existing_spouse_id');
-            setText('sum-spouse-name', (!existing || existing.indexOf('--') === 0) ? labels.empty : existing);
-            setText('sum-spouse-gender', labels.empty);
-            setText('sum-spouse-dob', labels.empty);
-            setText('sum-spouse-phone', labels.empty);
-            setText('sum-spouse-email', labels.empty);
-            setText('sum-spouse-occupation', labels.empty);
-            setText('sum-spouse-type', labels.empty);
-            setText('sum-spouse-department', labels.empty);
-            setText('sum-spouse-baptized', labels.empty);
-            setText('sum-spouse-baptism-date', labels.empty);
-            setText('sum-spouse-joined', labels.empty);
-            setText('sum-spouse-birth', labels.empty);
-            return;
+        if (typeof window.buildChildrenSummary === 'function') {
+            window.buildChildrenSummary(form, {
+                empty: labels.empty,
+                gender: { male: labels.male, female: labels.female }
+            });
         }
-
-        setText('sum-spouse-name', val('spouse_name'));
-        setText('sum-spouse-gender', display(val('spouse_gender'), { male: labels.male, female: labels.female }));
-        setText('sum-spouse-dob', val('spouse_date_of_birth'));
-        setText('sum-spouse-phone', val('spouse_phone_number'));
-        setText('sum-spouse-email', val('spouse_email'));
-        setText('sum-spouse-occupation', val('spouse_occupation'));
-        setText('sum-spouse-type', display(val('spouse_member_type'), {
-            member: labels.member, visitor: labels.visitor, new_convert: labels.new_convert
-        }));
-        var spouseDept = selectText('spouse_department_id');
-        setText('sum-spouse-department', (!spouseDept || spouseDept.indexOf('--') === 0) ? labels.empty : spouseDept);
-        var spouseBaptized = val('spouse_is_baptized');
-        setText('sum-spouse-baptized', spouseBaptized === '1' ? labels.yes : (spouseBaptized === '0' ? labels.no : labels.empty));
-        setText('sum-spouse-baptism-date', spouseBaptized === '1' ? val('spouse_baptism_date') : labels.empty);
-        setText('sum-spouse-joined', val('spouse_date_joined'));
-        setText('sum-spouse-birth', place(val('spouse_birth_mkoa'), val('spouse_birth_wilaya')));
     }
 
     function showStep(step) {
@@ -975,4 +999,5 @@
     showStep(currentStep);
 })();
 </script>
+@include('partials.children-registration-scripts')
 @endpush
