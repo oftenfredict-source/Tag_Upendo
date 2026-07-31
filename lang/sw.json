@@ -685,5 +685,7 @@
     "Login account created and password generated.": "Akaunti ya kuingia imetengenezwa na password imetolewa.",
     "Cannot generate a password for an archived member.": "Huwezi kutengeneza password kwa mwanachama aliyewekwa archive.",
     "Child profiles do not have login accounts.": "Wasifu wa watoto hana akaunti ya kuingia.",
-    "This account has been archived. Please contact the church office.": "Akaunti hii imewekwa kwenye archive. Wasiliana na ofisi ya kanisa."
+    "This account has been archived. Please contact the church office.": "Akaunti hii imewekwa kwenye archive. Wasiliana na ofisi ya kanisa.",
+    "New member?": "Mwanachama mpya?",
+    "Register here": "Jisajili hapa"
 }

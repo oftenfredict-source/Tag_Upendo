@@ -37,9 +37,10 @@ Route::get('/locale/{locale}', [LocaleController::class, 'switch'])
     ->where('locale', 'en|sw')
     ->name('locale.switch');
 
-Route::get('register/{token}', [PublicRegistrationController::class, 'create'])->name('register.show');
-Route::post('register/{token}', [PublicRegistrationController::class, 'store'])->name('register.store');
-Route::get('register/{token}/thanks', [PublicRegistrationController::class, 'thanks'])->name('register.thanks');
+Route::get('register', [PublicRegistrationController::class, 'landing'])->name('register.landing');
+Route::get('register/{code}', [PublicRegistrationController::class, 'create'])->name('register.show');
+Route::post('register/{code}', [PublicRegistrationController::class, 'store'])->name('register.store');
+Route::get('register/{code}/thanks', [PublicRegistrationController::class, 'thanks'])->name('register.thanks');
 
 Route::middleware(['auth', 'activity.log'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');

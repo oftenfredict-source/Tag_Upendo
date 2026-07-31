@@ -240,6 +240,25 @@
     text-align: center;
 }
 
+.login-page__register {
+    margin-top: 1.25rem;
+    margin-bottom: 0;
+    text-align: center;
+    font-size: 0.92rem;
+    color: #555;
+}
+
+.login-page__register a {
+    color: var(--brand-primary);
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.login-page__register a:hover {
+    color: var(--brand-primary-dark);
+    text-decoration: underline;
+}
+
 @media (max-width: 576px) {
     .login-page__card {
         padding: 1.5rem 1.25rem 1.25rem;

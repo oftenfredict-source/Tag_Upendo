@@ -63,7 +63,7 @@
                         </div>
                     </div>
 
-                    <form action="{{ route('register.store', $token) }}" method="POST" id="memberWizardForm" novalidate>
+                    <form action="{{ route('register.store', $code) }}" method="POST" id="memberWizardForm" novalidate>
                         @csrf
                         <input type="hidden" name="spouse_mode" value="new">
 

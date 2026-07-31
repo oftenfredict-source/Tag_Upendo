@@ -11,9 +11,20 @@ use Illuminate\Http\Request;
 
 class PublicRegistrationController extends Controller
 {
-    public function create(string $token)
+    public function landing()
     {
-        $link = RegistrationLink::findUsable($token);
+        $link = RegistrationLink::activeLink();
+
+        if ($link) {
+            return redirect()->route('register.show', $link->publicCode());
+        }
+
+        return view('registration.invalid-link');
+    }
+
+    public function create(string $code)
+    {
+        $link = RegistrationLink::findUsable($code);
 
         if (! $link) {
             return view('registration.invalid-link');
@@ -23,12 +34,17 @@ class PublicRegistrationController extends Controller
         $tzRegionNames = array_keys(config('tanzania_locations.regions'));
         sort($tzRegionNames);
 
-        return view('registration.form', compact('link', 'departments', 'tzRegionNames', 'token'));
+        return view('registration.form', [
+            'link' => $link,
+            'departments' => $departments,
+            'tzRegionNames' => $tzRegionNames,
+            'code' => $link->publicCode(),
+        ]);
     }
 
-    public function store(Request $request, string $token, MemberRegistrationService $service)
+    public function store(Request $request, string $code, MemberRegistrationService $service)
     {
-        $link = RegistrationLink::findUsable($token);
+        $link = RegistrationLink::findUsable($code);
 
         if (! $link) {
             return redirect()
@@ -45,14 +61,14 @@ class PublicRegistrationController extends Controller
         app(NotificationService::class)->notifyStaffOfRegistrationRequest($registrationRequest);
 
         return redirect()
-            ->route('register.thanks', $token)
+            ->route('register.thanks', $link->publicCode())
             ->with('registration_request_id', $registrationRequest->id);
     }
 
-    public function thanks(string $token)
+    public function thanks(string $code)
     {
-        $link = RegistrationLink::where('token', $token)->first();
+        $link = RegistrationLink::findByPublicCode($code);
 
-        return view('registration.thanks', compact('link', 'token'));
+        return view('registration.thanks', compact('link', 'code'));
     }
 }

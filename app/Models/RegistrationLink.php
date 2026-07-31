@@ -9,6 +9,7 @@ class RegistrationLink extends Model
 {
     protected $fillable = [
         'token',
+        'short_code',
         'created_by',
         'label',
         'is_active',
@@ -28,7 +29,20 @@ class RegistrationLink extends Model
             if (! $link->token) {
                 $link->token = Str::random(48);
             }
+
+            if (! $link->short_code) {
+                $link->short_code = static::generateUniqueShortCode();
+            }
         });
+    }
+
+    public static function generateUniqueShortCode(): string
+    {
+        do {
+            $code = Str::lower(Str::random(8));
+        } while (static::where('short_code', $code)->exists());
+
+        return $code;
     }
 
     public function creator()
@@ -54,15 +68,37 @@ class RegistrationLink extends Model
         return true;
     }
 
-    public function publicUrl(): string
+    public function publicCode(): string
     {
-        return route('register.show', $this->token);
+        return $this->short_code ?: $this->token;
     }
 
-    public static function findUsable(string $token): ?self
+    public function publicUrl(): string
     {
-        $link = static::where('token', $token)->first();
+        return route('register.show', $this->publicCode());
+    }
+
+    public static function findUsable(string $code): ?self
+    {
+        $link = static::where('short_code', $code)->first()
+            ?? static::where('token', $code)->first();
 
         return $link && $link->isUsable() ? $link : null;
+    }
+
+    public static function findByPublicCode(string $code): ?self
+    {
+        return static::where('short_code', $code)->first()
+            ?? static::where('token', $code)->first();
+    }
+
+    public static function activeLink(): ?self
+    {
+        return static::where('is_active', true)
+            ->where(function ($q) {
+                $q->whereNull('expires_at')->orWhere('expires_at', '>', now());
+            })
+            ->latest()
+            ->first();
     }
 }

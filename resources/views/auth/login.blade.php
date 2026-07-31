@@ -71,6 +71,11 @@
                     <i class="fa fa-sign-in"></i> {{ __('SIGN IN') }}
                 </button>
             </form>
+
+            <p class="login-page__register">
+                {{ __('New member?') }}
+                <a href="{{ route('register.landing') }}">{{ __('Register here') }}</a>
+            </p>
         </div>
 
         <p class="login-page__footer">&copy; {{ date('Y') }} {{ $appChurchName ?? 'TAG Upendo' }}</p>
