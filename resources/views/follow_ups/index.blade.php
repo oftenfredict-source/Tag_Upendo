@@ -31,8 +31,8 @@
                                 @forelse($followUps as $followUp)
                                     <tr>
                                         <td>{{ $followUp->id }}</td>
-                                        <td>{{ $followUp->member->name }}</td>
-                                        <td>{{ $followUp->member->phone_number }}</td>
+                                        <td>{{ $followUp->member?->name ?? '—' }}</td>
+                                        <td>{{ $followUp->member?->phone_number ?? '—' }}</td>
                                         <td>{{ Str::limit($followUp->message, 50) }}</td>
                                         <td>
                                             <span class="badge badge-{{ $followUp->status == 'sent' ? 'success' : 'warning' }}">
