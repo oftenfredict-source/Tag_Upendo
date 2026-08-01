@@ -90,9 +90,13 @@
                         @forelse($requests as $req)
                             <tr class="{{ $req->status === 'pending' ? 'table-warning' : '' }}">
                                 <td>
-                                    <a href="{{ route('members.show', $req->member) }}">{{ $req->member->name }}</a>
-                                    @if($req->member->phone_number)
-                                        <br><small class="text-muted"><i class="fa fa-phone"></i> {{ $req->member->phone_number }}</small>
+                                    @if($req->member)
+                                        <a href="{{ route('members.show', $req->member) }}">{{ $req->member->name }}</a>
+                                        @if($req->member->phone_number)
+                                            <br><small class="text-muted"><i class="fa fa-phone"></i> {{ $req->member->phone_number }}</small>
+                                        @endif
+                                    @else
+                                        <span class="text-muted">{{ __('Member removed') }}</span>
                                     @endif
                                 </td>
                                 <td>{{ $req->typeLabel() }}</td>

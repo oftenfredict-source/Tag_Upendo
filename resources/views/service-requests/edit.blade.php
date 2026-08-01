@@ -26,9 +26,11 @@
         <a href="{{ route('requests.index') }}" class="btn btn-secondary btn-sm">
             <i class="fa fa-arrow-left"></i> {{ __('Back') }}
         </a>
-        <a href="{{ route('members.show', $req->member) }}" class="btn btn-outline-primary btn-sm">
-            <i class="fa fa-user"></i> {{ __('View member profile') }}
-        </a>
+        @if($req->member)
+            <a href="{{ route('members.show', $req->member) }}" class="btn btn-outline-primary btn-sm">
+                <i class="fa fa-user"></i> {{ __('View member profile') }}
+            </a>
+        @endif
     </div>
 
     <div class="row">
@@ -40,16 +42,20 @@
                         <tr>
                             <th width="35%">{{ __('Member') }}</th>
                             <td>
-                                <a href="{{ route('members.show', $req->member) }}">{{ $req->member->name }}</a>
+                                @if($req->member)
+                                    <a href="{{ route('members.show', $req->member) }}">{{ $req->member->name }}</a>
+                                @else
+                                    <span class="text-muted">{{ __('Member removed') }}</span>
+                                @endif
                             </td>
                         </tr>
                         <tr>
                             <th>{{ __('Phone') }}</th>
-                            <td>{{ $req->member->phone_number ?? '—' }}</td>
+                            <td>{{ $req->member?->phone_number ?? '—' }}</td>
                         </tr>
                         <tr>
                             <th>{{ __('Department') }}</th>
-                            <td>{{ $req->member->department->name ?? __('No department') }}</td>
+                            <td>{{ $req->member?->department?->name ?? __('No department') }}</td>
                         </tr>
                         <tr>
                             <th>{{ __('Request type') }}</th>
